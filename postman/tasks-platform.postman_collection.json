@@ -1,0 +1,1400 @@
+{
+  "info": {
+    "name": "Tasks Platform — базовая проверка API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "37 запросов: по одному на каждую операцию текущего API. Отдельные URL auth/org/tasks для перехода к микросервисам. Порядок: регистрация (если нужна) → Auth → Org → Tasks → смена email (вручную) → очистка. Для приглашений компании и смены email нужны токены из письма или логов: полный автоматический Run all без пауз не предусмотрен. Подробности в README.md рядом с коллекцией."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "auth_base_url",
+      "value": "http://localhost:8000/auth/api/v1",
+      "type": "string",
+      "description": "Адрес auth с префиксом API, без завершающего /."
+    },
+    {
+      "key": "org_base_url",
+      "value": "http://localhost:8000/org/api/v1",
+      "type": "string",
+      "description": "Адрес org с префиксом API, без завершающего /."
+    },
+    {
+      "key": "tasks_base_url",
+      "value": "http://localhost:8000/tasks/api/v1",
+      "type": "string",
+      "description": "Адрес tasks с префиксом API, без завершающего /."
+    },
+    {
+      "key": "admin_email",
+      "value": "smoke.admin@example.com",
+      "type": "string",
+      "description": "Email отдельного тестового администратора."
+    },
+    {
+      "key": "admin_password",
+      "value": "SmokeAdmin123!",
+      "type": "string",
+      "description": "Пример пароля для тестового аккаунта."
+    },
+    {
+      "key": "company_name",
+      "value": "Smoke Test Company",
+      "type": "string",
+      "description": "Для новой регистрации укажи свободное имя."
+    },
+    {
+      "key": "employee_email",
+      "value": "smoke.employee@example.com",
+      "type": "string",
+      "description": "Для нового сотрудника укажи свободный email."
+    },
+    {
+      "key": "employee_password",
+      "value": "SmokeEmployee123!",
+      "type": "string",
+      "description": "Пример пароля сотрудника."
+    },
+    {
+      "key": "new_admin_email",
+      "value": "smoke.admin.changed@example.com",
+      "type": "string",
+      "description": "Свободный email для проверки смены почты администратора."
+    },
+    {
+      "key": "company_invite_token",
+      "value": "",
+      "type": "string",
+      "description": "Вставь токен из письма / Docker-логов после check-account."
+    },
+    {
+      "key": "email_change_token",
+      "value": "",
+      "type": "string",
+      "description": "Вставь токен из ссылки после email-change."
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string",
+      "description": "Сохраняется после login и login-refresh."
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string",
+      "description": "Сохраняется после login и login-refresh."
+    },
+    {
+      "key": "admin_user_id",
+      "value": "",
+      "type": "string",
+      "description": "Сохраняется после регистрации компании или GET users/me."
+    },
+    {
+      "key": "company_id",
+      "value": "",
+      "type": "string",
+      "description": "Сохраняется после регистрации компании."
+    },
+    {
+      "key": "employee_id",
+      "value": "",
+      "type": "string",
+      "description": "Сохраняется после приглашения сотрудника."
+    },
+    {
+      "key": "employee_invite_token",
+      "value": "",
+      "type": "string",
+      "description": "Сохраняется после приглашения сотрудника."
+    },
+    {
+      "key": "position_id",
+      "value": "",
+      "type": "string",
+      "description": "Сохраняется после создания должности."
+    },
+    {
+      "key": "struct_id",
+      "value": "",
+      "type": "string",
+      "description": "Сохраняется после создания подразделения."
+    },
+    {
+      "key": "task_id",
+      "value": "",
+      "type": "string",
+      "description": "Сохраняется после создания задачи."
+    },
+    {
+      "key": "task_deadline",
+      "value": "",
+      "type": "string",
+      "description": "При первом запросе автоматически выставляется дата через 7 дней; можно изменить вручную."
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get('task_deadline')) {",
+          "    pm.collectionVariables.set('task_deadline', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString());",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 — Регистрация компании (один раз)",
+      "description": "Новый тестовый аккаунт: check-account → вставить company_invite_token → sign-up → sign-up-complete. Если администратор уже есть, пропусти папку и заполни admin_email/admin_password.",
+      "item": [
+        {
+          "name": "01 Проверить email и получить приглашение",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Новый UUID на каждый Send. Для повтора с тем же ключом замени {{$guid}} на фиксированный UUID."
+              }
+            ],
+            "url": "{{auth_base_url}}/check-account/{{admin_email}}",
+            "description": "После отправки возьми токен из письма или docker compose logs backend и вставь в company_invite_token. API возвращает null.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 Подтвердить email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Новый UUID на каждый Send. Для повтора с тем же ключом замени {{$guid}} на фиксированный UUID."
+              }
+            ],
+            "url": "{{auth_base_url}}/sign-up",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account\": \"{{admin_email}}\",\n  \"invite_token\": \"{{company_invite_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 Создать компанию и администратора",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Новый UUID на каждый Send. Для повтора с тем же ключом замени {{$guid}} на фиксированный UUID."
+              }
+            ],
+            "url": "{{auth_base_url}}/sign-up-complete",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account\": \"{{admin_email}}\",\n  \"pass\": \"{{admin_password}}\",\n  \"first_name\": \"Smoke\",\n  \"last_name\": \"Admin\",\n  \"company_name\": \"{{company_name}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('admin_user_id', data.user_id);",
+                  "    pm.collectionVariables.set('company_id', data.company_id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 — Auth",
+      "description": "Выполняй сверху вниз под тестовым администратором. Login/refresh сохраняют токены, приглашение сотрудника сохраняет его ID и invite-токен.",
+      "item": [
+        {
+          "name": "01 Войти администратором",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{auth_base_url}}/login",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account\": \"{{admin_email}}\",\n  \"pass\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', data.access_token);",
+                  "    pm.collectionVariables.set('refresh_token', data.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 Обновить access-токен",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{auth_base_url}}/login-refresh",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', data.access_token);",
+                  "    pm.collectionVariables.set('refresh_token', data.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 Получить свой профиль",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{auth_base_url}}/users/me",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('admin_user_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 Изменить свой профиль",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{auth_base_url}}/users/me",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Smoke Updated\",\n  \"last_name\": \"Admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 Пригласить сотрудника",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Новый UUID на каждый Send. Для повтора с тем же ключом замени {{$guid}} на фиксированный UUID."
+              }
+            ],
+            "url": "{{auth_base_url}}/company/add-employee",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account\": \"{{employee_email}}\",\n  \"first_name\": \"Smoke\",\n  \"last_name\": \"Employee\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('employee_id', data.id);",
+                  "    pm.collectionVariables.set('employee_invite_token', data.invite_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06 Завершить регистрацию сотрудника",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Новый UUID на каждый Send. Для повтора с тем же ключом замени {{$guid}} на фиксированный UUID."
+              }
+            ],
+            "url": "{{auth_base_url}}/employee-invite/{{employee_invite_token}}",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account\": \"{{employee_email}}\",\n  \"pass\": \"{{employee_password}}\",\n  \"first_name\": \"Smoke\",\n  \"last_name\": \"Employee\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('employee_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 Получить сотрудника по ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{auth_base_url}}/users/{{employee_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "08 Получить список сотрудников",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{auth_base_url}}/company/employees?page=1&size=20",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 — Org",
+      "description": "Создаёт должность и подразделение, проверяет чтение/изменение и назначения. В конце снимает назначения. Удаление самих объектов — в папке 06.",
+      "item": [
+        {
+          "name": "01 Создать должность",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Новый UUID на каждый Send. Для повтора с тем же ключом замени {{$guid}} на фиксированный UUID."
+              }
+            ],
+            "url": "{{org_base_url}}/positions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Smoke Developer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('position_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 Получить список должностей",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{org_base_url}}/positions/?page=1&size=20",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 Получить должность",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{org_base_url}}/positions/{{position_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 Изменить должность",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{org_base_url}}/positions/{{position_id}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Smoke Senior Developer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 Назначить сотрудника на должность",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Новый UUID на каждый Send. Для повтора с тем же ключом замени {{$guid}} на фиксированный UUID."
+              }
+            ],
+            "url": "{{org_base_url}}/positions/{{position_id}}/user",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{employee_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06 Создать подразделение",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Новый UUID на каждый Send. Для повтора с тем же ключом замени {{$guid}} на фиксированный UUID."
+              }
+            ],
+            "url": "{{org_base_url}}/structs/",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Smoke Engineering\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('struct_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 Получить список подразделений",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{org_base_url}}/structs/?page=1&size=20",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "08 Получить подразделение",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{org_base_url}}/structs/{{struct_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09 Изменить подразделение",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{org_base_url}}/structs/{{struct_id}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Smoke Engineering Updated\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 Получить дерево подразделения",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{org_base_url}}/structs/{{struct_id}}/tree",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11 Переместить подразделение в корень",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{org_base_url}}/structs/{{struct_id}}/move",
+            "description": "null перемещает в корень. Созданное подразделение уже в корне: это базовый вызов операции. Для проверки вложенности вручную укажи UUID другого существующего подразделения своей компании.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"struct_id\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 Привязать должность к подразделению",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Новый UUID на каждый Send. Для повтора с тем же ключом замени {{$guid}} на фиксированный UUID."
+              }
+            ],
+            "url": "{{org_base_url}}/structs/{{struct_id}}/positions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position_id\": \"{{position_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13 Назначить директора",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{org_base_url}}/structs/{{struct_id}}/director",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"director_user_id\": \"{{employee_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14 Снять директора",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{org_base_url}}/structs/{{struct_id}}/director",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "15 Отвязать должность от подразделения",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{org_base_url}}/structs/{{struct_id}}/positions/{{position_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16 Снять сотрудника с должности",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{org_base_url}}/positions/{{position_id}}/user/{{employee_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 — Tasks",
+      "description": "Создание → список → чтение → изменение → перевод created в active. Удаление — в папке 06.",
+      "item": [
+        {
+          "name": "01 Создать задачу",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Новый UUID на каждый Send. Для повтора с тем же ключом замени {{$guid}} на фиксированный UUID."
+              }
+            ],
+            "url": "{{tasks_base_url}}/tasks/",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Smoke task\",\n  \"description\": \"Базовая проверка после разделения на микросервисы.\",\n  \"deadline\": \"{{task_deadline}}\",\n  \"estimated_minutes\": 30,\n  \"responsible_id\": \"{{employee_id}}\",\n  \"observer_ids\": [\n    \"{{admin_user_id}}\"\n  ],\n  \"executor_ids\": [\n    \"{{employee_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('task_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 Получить список задач",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{tasks_base_url}}/tasks/?page=1&size=20",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 Получить задачу",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{tasks_base_url}}/tasks/{{task_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 Изменить задачу",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{tasks_base_url}}/tasks/{{task_id}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Smoke task updated\",\n  \"description\": \"Базовая проверка после разделения на микросервисы.\",\n  \"deadline\": \"{{task_deadline}}\",\n  \"estimated_minutes\": 45,\n  \"responsible_id\": \"{{employee_id}}\",\n  \"observer_ids\": [\n    \"{{admin_user_id}}\"\n  ],\n  \"executor_ids\": [\n    \"{{employee_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 Активировать задачу",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{tasks_base_url}}/tasks/{{task_id}}/status",
+            "description": "Ожидается исходный статус created. Повторная установка active для уже активной задачи вернёт 409.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 — Смена email (вручную, необязательно для быстрого прогона)",
+      "description": "Меняет email текущего администратора. Между запросами вставь email_change_token из письма или логов. После успеха admin_email обновится автоматически.",
+      "item": [
+        {
+          "name": "01 Запросить смену email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Новый UUID на каждый Send. Для повтора с тем же ключом замени {{$guid}} на фиксированный UUID."
+              }
+            ],
+            "url": "{{auth_base_url}}/email-change",
+            "description": "Вставь токен из полученной ссылки в email_change_token. API возвращает null.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account\": \"{{new_admin_email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 Подтвердить смену email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Новый UUID на каждый Send. Для повтора с тем же ключом замени {{$guid}} на фиксированный UUID."
+              }
+            ],
+            "url": "{{auth_base_url}}/email-change-complete/{{email_change_token}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('admin_email', data.account);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 — Удаление созданных объектов",
+      "description": "Выполняй после Org и Tasks. Должность должна быть отвязана от подразделения. Компания и аккаунты остаются: API удаления для них нет.",
+      "item": [
+        {
+          "name": "01 Удалить задачу",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{tasks_base_url}}/tasks/{{task_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 Удалить подразделение",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{org_base_url}}/structs/{{struct_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 Удалить должность",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{org_base_url}}/positions/{{position_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

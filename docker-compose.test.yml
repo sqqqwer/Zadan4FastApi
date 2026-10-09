@@ -1,0 +1,33 @@
+volumes:
+  pg_test_data:
+
+services:
+  migrate_test:
+      build: .
+      env_file: .env
+      environment:
+        POSTGRES_USER: test
+        POSTGRES_PASSWORD: test
+        POSTGRES_DB: test
+        DB_HOST: db_test
+        DB_PORT: 5432
+      depends_on:
+        db_test:
+          condition: service_healthy
+      command: alembic upgrade head
+      restart: "no"
+  db_test:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: test
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""
+      interval: 10s
+      timeout: 5s
+      retries: 5

@@ -1,0 +1,3 @@
+COMPANY_ID = "271a39a7-f8d7-4bd4-996a-065dff73b52f"
+USER_ID_ADD_TO_TASK = "211a39a7-f8da-1b34-996a-025d3f74b52f"
+TEST_EMAIL = "test@mail.com"
