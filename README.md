@@ -30,6 +30,16 @@ make docker-up
 ```shell
 make install
 ```
+- Войти в виртуальное окружение в IDE
+
+или
+
+```shell
+source .venv/bin/activate
+```
+```shell
+source .venv/Scripts/activate
+```
 - Поднять тестовые контейнеры, линтер, запустить все тесты
 ```shell
 make prepare
