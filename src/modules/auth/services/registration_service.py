@@ -44,6 +44,7 @@ from ..schemas import (
     InviteTokenHashed,
     UserAdminAndCompanyRegistration,
     UserAdminAndCompanyRegistrationResponse,
+    UserEmployeeRegistration,
     UserEmployeeRegistrationResponse,
     UserRegistration,
     UserResponse,
@@ -263,12 +264,12 @@ class RegistrationService:
         return response
 
     async def create_user_employee_start(
-        self, payload: AccountEmail, company_id: UUID, idempotency: IdempotencyAbstractService
+        self, payload: UserEmployeeRegistration, company_id: UUID, idempotency: IdempotencyAbstractService
     ) -> UserEmployeeRegistrationResponse:
         """Create an employee account and a registration invite.
 
         Args:
-            payload: Account email data.
+            payload: Employee email and name data.
             company_id: Company ID.
             idempotency: Service for checking and saving idempotent operations.
 
@@ -300,8 +301,8 @@ class RegistrationService:
         )
 
         user_scheme = UserScheme(
-            first_name=None,
-            last_name=None,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
         )
         user = await self.user_repository.create_user(user_scheme)
 
