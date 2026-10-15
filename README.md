@@ -26,20 +26,6 @@ cd Zadan4FastApi/
 make docker-up
 ```
 ### Запустить тесты
-- Установите виртуальное окружение
-```shell
-make install
-```
-- Войти в виртуальное окружение в IDE
-
-или
-
-```shell
-source .venv/bin/activate
-```
-```shell
-source .venv/Scripts/activate
-```
 - Поднять тестовые контейнеры, линтер, запустить все тесты
 ```shell
 make prepare

@@ -11,8 +11,7 @@ docker-up:			## Поднять docker-compose
 	docker-compose up -d
 
 test:				## Тесты
-	docker-compose -f docker-compose.test.yml up -d
-	pytest -v
+	docker compose -f docker-compose.test.yml run --rm --build tests
 
 format:				## Только форматирование
 	poetry run ruff format src

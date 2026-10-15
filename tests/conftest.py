@@ -3,8 +3,8 @@ import os
 os.environ["POSTGRES_USER"] = "test"
 os.environ["POSTGRES_PASSWORD"] = "test"
 os.environ["POSTGRES_DB"] = "test"
-os.environ["DB_HOST"] = "localhost"
-os.environ["DB_PORT"] = "5433"
+os.environ["DB_HOST"] = os.environ.get("DB_HOST", "localhost")
+os.environ["DB_PORT"] = os.environ.get("DB_PORT", "5433")
 
 import logging
 from collections.abc import AsyncIterator
