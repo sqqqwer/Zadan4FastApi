@@ -298,6 +298,7 @@ class RegistrationService:
             purpose=InvitePurposeEnum.EMPLOYEE_INVITATION,
             ttl=INVITE_EXPIRED_TTL_ON_EMPLOYEE_CREATE,
             recipient_email=account.email,
+            account=account,
         )
 
         user_scheme = UserScheme(
@@ -388,10 +389,14 @@ class RegistrationService:
         if invite.recipient_email != payload.email:
             raise InviteNotMatchingEmailWithAccount()
 
-        validated_email = AccountEmail(account=invite.recipient_email)
+        validated_email = AccountEmail(account=payload.email)
         account = await self.account_repository.get_account_with_secrets_and_user(validated_email)
         if account is None:
             raise AccountNotFound()
+
+        if invite.account_id != account.id:
+            raise InviteNotMatchingEmailWithAccount()
+
         if account.secrets is None:
             raise SecretsNotExists()
         if account.secrets.password_hash is not None:
