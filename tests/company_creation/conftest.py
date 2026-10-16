@@ -1,13 +1,19 @@
 import datetime
 import hashlib
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
+from typing import Any
 from unittest.mock import AsyncMock, Mock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
+from fastapi import status
+from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.dependencies.event_bus import get_event_bus
 from src.core.events.bus import AbstractEventsBus
+from src.core.main import app
 from src.core.request_context import correlation_id_var
 from src.core.services.idempotency import IdempotencyAbstractService
 from src.core.services.uow import UowAbstract
@@ -43,6 +49,9 @@ from .constants import (
     INVITE_TOKEN,
     JWT_ACCESS_TOKEN,
     PASSWORD,
+    REGISTRATION_TOKEN,
+    WRONG_ADMIN_EMAIL,
+    WRONG_INVITE_TOKEN_HASH,
 )
 
 
@@ -109,10 +118,23 @@ def mock_jwt_encoder_service() -> Mock:
 
 
 @pytest.fixture
+def mock_registration_session_service() -> AsyncMock:
+    """Create a mock registration session service.
+
+    Returns:
+        AsyncMock: Mock registration session service.
+    """
+    service = AsyncMock(spec=RegistrationSessionService)
+    service.create.return_value = REGISTRATION_TOKEN
+    return service
+
+
+@pytest.fixture
 def registration_service(
     fake_db: FakeDatabase,
     mock_uow: AsyncMock,
-    mock_event_bus: AsyncMock
+    mock_event_bus: AsyncMock,
+    mock_registration_session_service: AsyncMock,
 ) -> RegistrationService:
     """Create a registration service for tests.
 
@@ -120,6 +142,7 @@ def registration_service(
         fake_db: Fake database used by the test.
         mock_uow: Mock unit of work.
         mock_event_bus: Mock event bus.
+        mock_registration_session_service: Mock registration session service.
 
     Returns:
         RegistrationService: Registration service.
@@ -129,7 +152,7 @@ def registration_service(
         user_repository=UserMockRepository(fake_db),
         company_repository=CompanyMockRepository(fake_db),
         password_service=PasswordService(),
-        registration_session_service=AsyncMock(spec=RegistrationSessionService),
+        registration_session_service=mock_registration_session_service,
         uow=mock_uow,
         event_bus=mock_event_bus,
     )
@@ -309,3 +332,169 @@ def user_admin_and_company_registration_payload() -> UserAdminAndCompanyRegistra
             "account": ADMIN_EMAIL,
         }
     )
+
+
+@pytest.fixture
+async def get_async_client(
+    test_db: AsyncSession,
+    mock_registration_event_bus: AsyncMock,
+) -> AsyncIterator[AsyncClient]:
+    """Get an async HTTP client connected to the test database.
+
+    Args:
+        test_db: Database session used by the test.
+        mock_registration_event_bus: Mock event bus for HTTP requests.
+
+    Yields:
+        AsyncClient: HTTP client for sending requests to the application.
+    """
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="https://test",
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+def mock_registration_event_bus(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_event_bus: AsyncMock,
+) -> AsyncMock:
+    """Override the event bus for registration HTTP requests.
+
+    Args:
+        monkeypatch: Pytest helper for temporary patches.
+        mock_event_bus: Mock event bus.
+
+    Returns:
+        AsyncMock: Mock event bus.
+    """
+    dependency: Callable[..., Any] = get_event_bus
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        dependency,
+        lambda: mock_event_bus,
+    )
+
+    return mock_event_bus
+
+
+@pytest.fixture
+async def registration_invites(test_db: AsyncSession) -> list[Invite]:
+    """Create registration invites for the owner and another account.
+
+    Args:
+        test_db: Database session used by the test.
+
+    Returns:
+        list[Invite]: Company registration invites saved in the test database.
+    """
+    invites = [
+        Invite(
+            token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+            recipient_email=email,
+            expired_at=datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1),
+            purpose=InvitePurposeEnum.COMPANY_REGISTRATION,
+        )
+        for email, raw_token in (
+            (ADMIN_EMAIL, INVITE_TOKEN),
+            (WRONG_ADMIN_EMAIL, f"{INVITE_TOKEN}_other"),
+        )
+    ]
+    test_db.add_all(invites)
+    await test_db.commit()
+
+    return invites
+
+
+@pytest.fixture
+async def account_email_state(request: pytest.FixtureRequest, test_db: AsyncSession) -> None:
+    """Prepare an available or already registered email.
+
+    Args:
+        request: Pytest request containing the selected test parameter.
+        test_db: Database session used by the test.
+    """
+    if request.param == "already_exists":
+        test_db.add(Account(email=ADMIN_EMAIL))
+        await test_db.commit()
+
+
+@pytest.fixture
+async def email_confirmation_state(
+    request: pytest.FixtureRequest,
+    test_db: AsyncSession,
+    registration_invites: list[Invite],
+) -> None:
+    """Prepare the invite and account for email confirmation.
+
+    Args:
+        request: Pytest request containing the selected test parameter.
+        test_db: Database session used by the test.
+        registration_invites: Registration invites saved in the test database.
+    """
+    invite = registration_invites[0]
+    if request.param == "not_found":
+        invite.token_hash = WRONG_INVITE_TOKEN_HASH
+    elif request.param == "expired":
+        invite.expired_at = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=1)
+    elif request.param == "wrong_purpose":
+        invite.purpose = InvitePurposeEnum.EMAIL_CHANGE
+    elif request.param == "already_used":
+        invite.used_at = datetime.datetime.now(datetime.UTC)
+    elif request.param == "wrong_recipient":
+        invite.recipient_email = WRONG_ADMIN_EMAIL
+    elif request.param == "account_already_exists":
+        test_db.add(Account(email=ADMIN_EMAIL))
+
+    await test_db.commit()
+
+
+@pytest.fixture
+async def company_registration_data(  # noqa: PLR0913, PLR0917
+    request: pytest.FixtureRequest,
+    test_db: AsyncSession,
+    get_async_client: AsyncClient,
+    registration_invites: list[Invite],
+    company_sign_up_email_confirmation_payload: CompanySignUpEmailConfirmation,
+    user_admin_and_company_registration_payload: UserAdminAndCompanyRegistration,
+) -> dict[str, Any]:
+    """Confirm the email and prepare company registration data.
+
+    Args:
+        request: Pytest request containing the selected test parameter.
+        test_db: Database session used by the test.
+        get_async_client: Async HTTP client for the test application.
+        registration_invites: Registration invites saved in the test database.
+        company_sign_up_email_confirmation_payload: Email confirmation data.
+        user_admin_and_company_registration_payload: Company and admin registration data.
+
+    Returns:
+        dict[str, Any]: Company registration request body.
+    """
+    response = await get_async_client.post(
+        "/auth/api/v1/sign-up",
+        json=company_sign_up_email_confirmation_payload.model_dump(mode="json", by_alias=True),
+        headers={"Idempotency-Key": str(uuid4())},
+    )
+    assert response.status_code == status.HTTP_200_OK, response.text
+
+    payload = user_admin_and_company_registration_payload
+    data = payload.model_dump(mode="json", by_alias=True)
+    data["pass"] = payload.password.get_secret_value()
+
+    if request.param == "company_already_exists":
+        test_db.add(Company(name=payload.company_name))
+    elif request.param == "account_not_found":
+        data["account"] = WRONG_ADMIN_EMAIL
+    elif request.param == "secrets_already_exist":
+        test_db.add(Secrets(
+            account_id=UUID(response.json()["id"]),
+            user=User(first_name=ADMIN_FIRST_NAME, last_name=ADMIN_LAST_NAME),
+            password_hash=PasswordService().password_hash(payload.password),
+        ))
+
+    await test_db.commit()
+    return data

@@ -24,6 +24,7 @@ from tests.company_creation.repositories import FakeDatabase
 
 from .constants import (
     ADMIN_EMAIL,
+    REGISTRATION_TOKEN,
     WRONG_ADMIN_EMAIL,
     WRONG_INVITE_TOKEN_HASH,
 )
@@ -87,6 +88,7 @@ async def test_company_sign_up_email_confirmation(  # noqa: PLR0913, PLR0917
     mock_uow: AsyncMock,
     registration_service: RegistrationService,
     mock_idempotency: AsyncMock,
+    mock_registration_session_service: AsyncMock,
 ):
     """Check that email confirmation creates an account and uses the invite.
 
@@ -97,6 +99,7 @@ async def test_company_sign_up_email_confirmation(  # noqa: PLR0913, PLR0917
         mock_uow: Mock unit of work.
         registration_service: Registration service used by the test.
         mock_idempotency: Mock idempotency.
+        mock_registration_session_service: Mock registration session service.
     """
     payload = company_sign_up_email_confirmation_payload
     response = await registration_service.company_sign_up_email_confirmation(
@@ -112,6 +115,8 @@ async def test_company_sign_up_email_confirmation(  # noqa: PLR0913, PLR0917
     assert new_invite_company_registration.used_at is not None
     assert account.email == payload.email
     assert response.email == payload.email
+    assert response.registration_token == REGISTRATION_TOKEN
+    mock_registration_session_service.create.assert_awaited_once_with(account)
 
 
 async def test_company_sign_up_email_confirmation_invite_not_found(
@@ -251,6 +256,7 @@ async def test_create_company_and_admin(  # noqa: PLR0913, PLR0917
     mock_uow: AsyncMock,
     registration_service: RegistrationService,
     mock_idempotency: AsyncMock,
+    mock_registration_session_service: AsyncMock,
 ):
     """Check that a company, admin, membership, and password are created.
 
@@ -261,11 +267,15 @@ async def test_create_company_and_admin(  # noqa: PLR0913, PLR0917
         mock_uow: Mock unit of work.
         registration_service: Registration service used by the test.
         mock_idempotency: Mock idempotency.
+        mock_registration_session_service: Mock registration session service.
     """
     payload = user_admin_and_company_registration_payload
+    registration_session = mock_registration_session_service.get_active.return_value
+    registration_session.account_id = new_account.id
     response = await registration_service.create_company_and_admin(
         payload=payload,
         idempotency=mock_idempotency,
+        registration_token=REGISTRATION_TOKEN,
     )
 
     assert len(fake_db.users) == 1
@@ -279,6 +289,9 @@ async def test_create_company_and_admin(  # noqa: PLR0913, PLR0917
     secrets = new_account.secrets
 
     mock_uow.commit.assert_awaited_once()
+
+    mock_registration_session_service.get_active.assert_awaited_once_with(REGISTRATION_TOKEN)
+    mock_registration_session_service.consume.assert_awaited_once_with(registration_session)
 
     assert secrets is not None
     assert secrets.password_hash is not None
@@ -320,6 +333,7 @@ async def test_create_company_and_admin_company_already_exists(
         await registration_service.create_company_and_admin(
             payload=user_admin_and_company_registration_payload,
             idempotency=mock_idempotency,
+            registration_token=REGISTRATION_TOKEN,
         )
 
 
@@ -339,6 +353,7 @@ async def test_create_company_and_admin_account_not_found(
         await registration_service.create_company_and_admin(
             payload=user_admin_and_company_registration_payload,
             idempotency=mock_idempotency,
+            registration_token=REGISTRATION_TOKEN,
         )
 
 async def test_create_company_and_admin_account_secret_already_exists(
@@ -346,6 +361,7 @@ async def test_create_company_and_admin_account_secret_already_exists(
     user_admin_and_company_registration_payload: UserAdminAndCompanyRegistration,
     registration_service: RegistrationService,
     mock_idempotency: AsyncMock,
+    mock_registration_session_service: AsyncMock,
 ):
     """Check that company registration rejects an account linked to a user.
 
@@ -354,9 +370,12 @@ async def test_create_company_and_admin_account_secret_already_exists(
         user_admin_and_company_registration_payload: Company and admin registration data used by the test.
         registration_service: Registration service used by the test.
         mock_idempotency: Mock idempotency.
+        mock_registration_session_service: Mock registration session service.
     """
+    mock_registration_session_service.get_active.return_value.account_id = new_secrets.account_id
     with pytest.raises(UserWithThisAccountAlreadyExists):
         await registration_service.create_company_and_admin(
             payload=user_admin_and_company_registration_payload,
             idempotency=mock_idempotency,
+            registration_token=REGISTRATION_TOKEN,
         )
