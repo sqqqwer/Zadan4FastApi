@@ -5,6 +5,7 @@ from .login import LoginScheme, RefreshToken, TokenResponse
 from .refresh_session import RefreshSessionCreation, RefreshSessionTokenHash, RefreshSessionUpdate
 from .registration import (
     CompanySignUpEmailConfirmation,
+    CompanySignUpEmailConfirmationResponse,
     UserAdminAndCompanyRegistration,
     UserAdminAndCompanyRegistrationResponse,
     UserEmployeeRegistration,
@@ -18,6 +19,7 @@ __all__ = (
     "AccountEmailResponse",
     "CompanyName",
     "CompanySignUpEmailConfirmation",
+    "CompanySignUpEmailConfirmationResponse",
     "InviteCreation",
     "InviteToken",
     "InviteTokenHashed",

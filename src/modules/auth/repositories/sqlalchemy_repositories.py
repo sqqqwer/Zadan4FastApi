@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import override
 from uuid import UUID
 
@@ -14,6 +15,7 @@ from ..models.company import Company
 from ..models.invite import Invite
 from ..models.members import Members
 from ..models.refresh_session import RefreshSession
+from ..models.registration_session import RegistrationSession
 from ..models.secrets import Secrets
 from ..models.user import User
 from ..schemas import (
@@ -30,6 +32,7 @@ from .abstracts import (
     AccountAbstractRepository,
     CompanyAbstractRepository,
     RefreshSessionAbstractRepository,
+    RegistrationSessionAbstractRepository,
     UserAbstractRepository,
 )
 
@@ -213,3 +216,23 @@ class RefreshSessionSqlAlchemyRepository(AuthBaseSqlAlchemyRepository, RefreshSe
         refresh_session = RefreshSession(**scheme.model_dump(), user=user)
         self.session.add(refresh_session)
         return refresh_session
+
+
+class RegistrationSessionSqlAlchemyRepository(AuthBaseSqlAlchemyRepository, RegistrationSessionAbstractRepository):
+    """SQLAlchemy repository for registration sessions."""
+
+    @override
+    async def create(self, account: Account, token_hash: str, expires_at: datetime) -> RegistrationSession:
+        registration_session = RegistrationSession(account=account, token_hash=token_hash, expires_at=expires_at)
+        self.session.add(registration_session)
+        return registration_session
+
+    @override
+    async def get_by_token_hash_for_update(self, token_hash: str) -> RegistrationSession | None:
+        stmt = select(RegistrationSession).where(RegistrationSession.token_hash == token_hash).with_for_update()
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @override
+    async def delete(self, registration_session: RegistrationSession) -> None:
+        await self.session.delete(registration_session)

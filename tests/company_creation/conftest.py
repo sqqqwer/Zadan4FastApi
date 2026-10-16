@@ -25,6 +25,7 @@ from src.modules.auth.services.auth_service import AuthService
 from src.modules.auth.services.jwt_service import AbstractJWTEncoderService
 from src.modules.auth.services.password_service import PasswordService
 from src.modules.auth.services.registration_service import RegistrationService
+from src.modules.auth.services.registration_session_service import RegistrationSessionService
 from src.modules.auth.services.user_service import UserService
 from tests.company_creation.repositories import (
     AccountMockRepository,
@@ -128,6 +129,7 @@ def registration_service(
         user_repository=UserMockRepository(fake_db),
         company_repository=CompanyMockRepository(fake_db),
         password_service=PasswordService(),
+        registration_session_service=AsyncMock(spec=RegistrationSessionService),
         uow=mock_uow,
         event_bus=mock_event_bus,
     )

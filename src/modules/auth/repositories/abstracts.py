@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import EmailStr
@@ -11,6 +12,7 @@ from ..models.company import Company
 from ..models.invite import Invite
 from ..models.members import Members
 from ..models.refresh_session import RefreshSession
+from ..models.registration_session import RegistrationSession
 from ..models.secrets import Secrets
 from ..models.user import User
 from ..schemas import (
@@ -324,5 +326,45 @@ class RefreshSessionAbstractRepository(BaseRepository):
 
         Returns:
             RefreshSession: Refresh session.
+        """
+        ...
+
+
+class RegistrationSessionAbstractRepository(BaseRepository):
+    """Abstract repository for registration sessions."""
+
+    @abstractmethod
+    async def create(self, account: Account, token_hash: str, expires_at: datetime) -> RegistrationSession:
+        """Create a registration session.
+
+        Args:
+            account: Linked account.
+            token_hash: Hashed session token.
+            expires_at: Session expiration date.
+
+        Returns:
+            RegistrationSession: Created session.
+        """
+        ...
+
+    @abstractmethod
+    async def get_by_token_hash_for_update(self, token_hash: str) -> RegistrationSession | None:
+        """Get a registration session by token hash with a row lock.
+
+        Args:
+            token_hash: Hashed session token.
+
+        Returns:
+            RegistrationSession: Registration session.
+            None: If the session is not found.
+        """
+        ...
+
+    @abstractmethod
+    async def delete(self, registration_session: RegistrationSession) -> None:
+        """Delete a registration session.
+
+        Args:
+            registration_session: Session to delete.
         """
         ...

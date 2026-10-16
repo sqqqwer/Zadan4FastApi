@@ -107,3 +107,15 @@ class InvalidCredentials(AuthModuleError, AuthenticationError):
     """The authentication data is invalid."""
 
     _message = "Invalid authentication data."
+
+
+class RegistrationSessionRequired(AuthModuleError, AuthenticationError):
+    """The registration session cookie is missing."""
+
+    _message = "Registration session required."
+
+
+class InvalidRegistrationSession(AuthModuleError, AuthenticationError):
+    """The registration session is missing, expired, or already consumed."""
+
+    _message = "Invalid registration session."

@@ -1,6 +1,7 @@
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Cookie, Response, status
 from pydantic import EmailStr
 
 from src.core.dependencies.idempotency import IdempotencyServiceDependency
@@ -23,6 +24,7 @@ from ...schemas import (
     UserResponse,
     UserScheme,
 )
+from ...services.constants import REGISTRATION_SESSION_ALIAS
 
 router = APIRouter(prefix="/auth/api/v1")
 
@@ -49,13 +51,15 @@ async def check_account_email(
 @router.post("/sign-up")
 async def company_sign_up_email_confirmation(
     payload: CompanySignUpEmailConfirmation,
+    response: Response,
     service: RegistrationServiceDependency,
     idempotency: IdempotencyServiceDependency,
 ) -> AccountEmailResponse:
-    """Confirm the company registration email and create an account.
+    """Confirm the company email and set the registration cookie.
 
     Args:
         payload: Email and invite token for confirmation.
+        response: HTTP response used to set the registration cookie.
         service: Registration service.
         idempotency: Service for checking and saving idempotent operations.
 
@@ -65,7 +69,22 @@ async def company_sign_up_email_confirmation(
     Raises:
         IdempotencyDifferentRequestError: If the idempotency key was already used with different request data.
     """
-    return await service.company_sign_up_email_confirmation(payload=payload, idempotency=idempotency)
+    result = await service.company_sign_up_email_confirmation(
+        payload=payload,
+        idempotency=idempotency,
+    )
+
+    response.set_cookie(
+        key=REGISTRATION_SESSION_ALIAS,
+        value=result.registration_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=900,
+        path=router.prefix,
+    )
+
+    return AccountEmailResponse(id=result.id, account=result.email)
 
 
 @router.post(
@@ -74,23 +93,40 @@ async def company_sign_up_email_confirmation(
 )
 async def create_company_and_admin(
     payload: UserAdminAndCompanyRegistration,
+    response: Response,
     service: RegistrationServiceDependency,
     idempotency: IdempotencyServiceDependency,
+    registration_token: Annotated[str | None, Cookie(alias=REGISTRATION_SESSION_ALIAS)] = None,
 ) -> UserAdminAndCompanyRegistrationResponse:
-    """Create a company and its admin user.
+    """Complete company registration and delete the registration cookie.
 
     Args:
         payload: Company and admin registration data.
+        response: HTTP response used to delete the registration cookie.
         service: Registration service.
         idempotency: Service for checking and saving idempotent operations.
+        registration_token: Registration session token from the cookie.
 
     Returns:
         UserAdminAndCompanyRegistrationResponse: Created company and admin data.
 
     Raises:
         IdempotencyDifferentRequestError: If the idempotency key was already used with different request data.
+        RegistrationSessionRequired: If the session cookie is missing.
+        InvalidRegistrationSession: If the session is invalid or belongs to another account.
     """
-    return await service.create_company_and_admin(payload=payload, idempotency=idempotency)
+    result = await service.create_company_and_admin(
+        payload=payload,
+        idempotency=idempotency,
+        registration_token=registration_token,
+    )
+
+    response.delete_cookie(
+        key=REGISTRATION_SESSION_ALIAS,
+        path=router.prefix,
+    )
+
+    return result
 
 
 @router.post(

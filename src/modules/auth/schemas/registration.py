@@ -2,7 +2,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, SecretStr
 
-from .account import AccountEmail
+from .account import AccountEmail, AccountEmailResponse
 from .company import CompanyName
 from .invite import InviteToken
 from .user import UserResponse, UserScheme
@@ -29,6 +29,18 @@ class CompanySignUpEmailConfirmation(AccountEmail, InviteToken):
         email(alias="account"): EmailStr
         invite_token: str
     """
+
+
+class CompanySignUpEmailConfirmationResponse(AccountEmailResponse):
+    """Response scheme for company email confirmation.
+
+    Attributes:
+        id: UUID
+        email(alias="account"): EmailStr
+        registration_token: str
+    """
+
+    registration_token: str = Field(repr=False)
 
 
 class UserRegistration(AccountEmail, UserScheme, PasswordScheme):

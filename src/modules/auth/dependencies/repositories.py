@@ -8,12 +8,14 @@ from ..repositories.abstracts import (
     AccountAbstractRepository,
     CompanyAbstractRepository,
     RefreshSessionAbstractRepository,
+    RegistrationSessionAbstractRepository,
     UserAbstractRepository,
 )
 from ..repositories.sqlalchemy_repositories import (
     AccountSqlAlchemyRepository,
     CompanySqlAlchemyRepository,
     RefreshSessionSqlAlchemyRepository,
+    RegistrationSessionSqlAlchemyRepository,
     UserSqlAlchemyRepository,
 )
 
@@ -66,6 +68,21 @@ def get_refresh_session_repository(session: SessionDependency) -> RefreshSession
     return RefreshSessionSqlAlchemyRepository(session)
 
 
+def get_registration_session_repository(session: SessionDependency) -> RegistrationSessionAbstractRepository:
+    """Get the registration session repository.
+
+    Args:
+        session: Database session used by the repository.
+
+    Returns:
+        RegistrationSessionAbstractRepository: Registration session repository.
+    """
+    return RegistrationSessionSqlAlchemyRepository(session)
+
+
+RegistrationSessionRepositoryDependency = Annotated[
+    RegistrationSessionAbstractRepository, Depends(get_registration_session_repository)
+]
 AccountRepositoryDependency = Annotated[AccountAbstractRepository, Depends(get_account_repository)]
 CompanyRepositoryDependency = Annotated[CompanyAbstractRepository, Depends(get_company_repository)]
 UserRepositoryDependency = Annotated[UserAbstractRepository, Depends(get_user_repository)]

@@ -23,12 +23,14 @@ from ..resources.exceptions import (
     AccountWithEmailAlreadyExists,
     CompanyNotFound,
     CompanyWithThisNameAlreadyExists,
+    InvalidRegistrationSession,
     InviteAlreadyUsed,
     InviteExpired,
     InviteNotFound,
     InviteNotMatchingEmailWithAccount,
     InviteWrongPurpose,
     NewEmailMatchesCurrentEmail,
+    RegistrationSessionRequired,
     SecretsNotExists,
     SecretsPasswordAlreadyExists,
     UserNotFound,
@@ -40,6 +42,7 @@ from ..schemas import (
     AccountEmailResponse,
     CompanyName,
     CompanySignUpEmailConfirmation,
+    CompanySignUpEmailConfirmationResponse,
     InviteCreation,
     InviteTokenHashed,
     UserAdminAndCompanyRegistration,
@@ -59,6 +62,7 @@ from .constants import (
     INVITE_EXPIRED_TTL_ON_EMPLOYEE_CREATE,
 )
 from .password_service import AbstractPasswordService
+from .registration_session_service import AbstractRegistrationSessionService
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +76,7 @@ class RegistrationService:
         user_repository: UserAbstractRepository,
         company_repository: CompanyAbstractRepository,
         password_service: AbstractPasswordService,
+        registration_session_service: AbstractRegistrationSessionService,
         uow: UowAbstract,
         event_bus: AbstractEventsBus,
     ):
@@ -82,6 +87,7 @@ class RegistrationService:
             user_repository: Database repository for user objects.
             company_repository: Database repository for company objects.
             password_service: Service for hashing and checking passwords.
+            registration_session_service: Registration session service.
             uow: Unit of work for database operations.
             event_bus: Event bus used to publish events.
         """
@@ -89,6 +95,7 @@ class RegistrationService:
         self.user_repository = user_repository
         self.company_repository = company_repository
         self.password_service = password_service
+        self.registration_session_service = registration_session_service
         self.uow = uow
         self.event_bus = event_bus
 
@@ -126,15 +133,15 @@ class RegistrationService:
 
     async def company_sign_up_email_confirmation(
         self, payload: CompanySignUpEmailConfirmation, idempotency: IdempotencyAbstractService
-    ) -> AccountEmailResponse:
-        """Confirm the company registration email and create an account.
+    ) -> CompanySignUpEmailConfirmationResponse:
+        """Confirm the company email and create an account and registration session.
 
         Args:
             payload: Email and invite token for confirmation.
             idempotency: Service for checking and saving idempotent operations.
 
         Returns:
-            AccountEmailResponse: Account ID and email.
+            CompanySignUpEmailConfirmationResponse: Account data and registration session token.
 
         Raises:
             AccountWithEmailAlreadyExists: If an account with this email already exists.
@@ -146,10 +153,10 @@ class RegistrationService:
             InviteWrongPurpose: If the invite has a different purpose.
         """
         idempotency_record = await idempotency.check_operation(
-            "company_registration.company_sign_up_email_confirmation:v1"
+            "company_registration.company_sign_up_email_confirmation:v2"
         )
         if idempotency_record is not None:
-            return AccountEmailResponse.model_validate(idempotency_record)
+            return CompanySignUpEmailConfirmationResponse.model_validate(idempotency_record)
 
         invite = await self._get_invite_by_raw_token(payload.invite_token, InvitePurposeEnum.COMPANY_REGISTRATION)
         if invite.recipient_email != payload.email:
@@ -160,11 +167,15 @@ class RegistrationService:
 
         account = await self.account_repository.create_account(account_scheme)
 
+        registration_token = await self.registration_session_service.create(account)
+
         invite.used_at = datetime.datetime.now(datetime.UTC)
 
         await self.uow.flush()
 
-        response = AccountEmailResponse(id=account.id, account=account.email)
+        response = CompanySignUpEmailConfirmationResponse(
+            id=account.id, account=account.email, registration_token=registration_token
+        )
 
         await idempotency.save_operation(
             response_json=response.model_dump(
@@ -179,13 +190,17 @@ class RegistrationService:
         return response
 
     async def create_company_and_admin(
-        self, payload: UserAdminAndCompanyRegistration, idempotency: IdempotencyAbstractService
+        self,
+        payload: UserAdminAndCompanyRegistration,
+        idempotency: IdempotencyAbstractService,
+        registration_token: str | None,
     ) -> UserAdminAndCompanyRegistrationResponse:
-        """Create a company and its admin user.
+        """Create a company and admin, then consume the registration session.
 
         Args:
             payload: Company and admin registration data.
             idempotency: Service for checking and saving idempotent operations.
+            registration_token: Registration session token.
 
         Returns:
             UserAdminAndCompanyRegistrationResponse: Created company and admin data.
@@ -194,11 +209,22 @@ class RegistrationService:
             AccountNotFound: If the account is not found.
             CompanyWithThisNameAlreadyExists: If a company with this name already exists.
             IdempotencyDifferentRequestError: If the idempotency key was already used with different request data.
+            RegistrationSessionRequired: If the session token is missing.
+            InvalidRegistrationSession: If the session is invalid or belongs to another account.
             UserWithThisAccountAlreadyExists: If a user is already linked to this account.
         """
-        idempotency_record = await idempotency.check_operation("company_registration.create_company_and_admin:v1")
+        if registration_token is None:
+            raise RegistrationSessionRequired()
+
+        registration_token_hash = hashlib.sha256(registration_token.encode()).hexdigest()
+
+        idempotency_record = await idempotency.check_operation(
+            f"company_registration.create_company_and_admin:v1:{registration_token_hash}"
+        )
         if idempotency_record is not None:
             return UserAdminAndCompanyRegistrationResponse.model_validate(idempotency_record)
+
+        registration_session = await self.registration_session_service.get_active(registration_token)
 
         company_name = CompanyName(company_name=payload.company_name)
         check_company_name = await self.company_repository.get_company_by_name(company_name)
@@ -209,6 +235,8 @@ class RegistrationService:
         account = await self.account_repository.get_account_with_secrets_and_user(validated_email)
         if account is None:
             raise AccountNotFound()
+        if account.id != registration_session.account_id:
+            raise InvalidRegistrationSession()
         if account.secrets is not None:
             raise UserWithThisAccountAlreadyExists()
 
@@ -240,6 +268,7 @@ class RegistrationService:
             )
         )
 
+        await self.registration_session_service.consume(registration_session)
         await self.uow.commit()
         logger.info(f"Company '{response.company_name}' and admin user id={response.user_id} created.")
 

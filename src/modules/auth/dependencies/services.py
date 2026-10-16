@@ -10,12 +10,14 @@ from src.core.dependencies.uow import UowDependency
 from ..services.auth_service import AuthService
 from ..services.jwt_service import JWTEncoderService
 from ..services.registration_service import RegistrationService
+from ..services.registration_session_service import AbstractRegistrationSessionService, RegistrationSessionService
 from ..services.user_service import UserService
 from .password_hasher import PasswordHasherDependency
 from .repositories import (
     AccountRepositoryDependency,
     CompanyRepositoryDependency,
     RefreshSessionRepositoryDependency,
+    RegistrationSessionRepositoryDependency,
     UserRepositoryDependency,
 )
 
@@ -38,11 +40,31 @@ def get_jwt_encoder_service(settings: JwtSettingsDependency) -> JWTEncoderServic
 JWTEcoderServiceDependency = Annotated[JWTEncoderService, Depends(get_jwt_encoder_service)]
 
 
+def get_registration_session_service(
+    registration_session_repository: RegistrationSessionRepositoryDependency,
+) -> AbstractRegistrationSessionService:
+    """Get the registration session service.
+
+    Args:
+        registration_session_repository: Database repository for registration sessions.
+
+    Returns:
+        AbstractRegistrationSessionService: Registration session service.
+    """
+    return RegistrationSessionService(registration_session_repository)
+
+
+RegistrationSessionServiceDependency = Annotated[
+    AbstractRegistrationSessionService, Depends(get_registration_session_service)
+]
+
+
 def get_registration_service(  # noqa: PLR0913, PLR0917
     account_repository: AccountRepositoryDependency,
     user_repository: UserRepositoryDependency,
     company_repository: CompanyRepositoryDependency,
     password_service: PasswordHasherDependency,
+    registration_session_service: RegistrationSessionServiceDependency,
     uow: UowDependency,
     event_bus: EventBusDependency,
 ) -> RegistrationService:
@@ -53,6 +75,7 @@ def get_registration_service(  # noqa: PLR0913, PLR0917
         user_repository: Database repository for user objects.
         company_repository: Database repository for company objects.
         password_service: Service for hashing and checking passwords.
+        registration_session_service: Registration session service.
         uow: Unit of work for database operations.
         event_bus: Event bus used to publish events.
 
@@ -64,6 +87,7 @@ def get_registration_service(  # noqa: PLR0913, PLR0917
         user_repository=user_repository,
         company_repository=company_repository,
         password_service=password_service,
+        registration_session_service=registration_session_service,
         uow=uow,
         event_bus=event_bus,
     )

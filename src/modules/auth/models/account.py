@@ -6,6 +6,7 @@ from .base import AuthBaseModel
 
 if TYPE_CHECKING:
     from .invite import Invite
+    from .registration_session import RegistrationSession
     from .secrets import Secrets
 
 
@@ -17,6 +18,7 @@ class Account(AuthBaseModel):
         email: str
         secrets: Secrets | None
         invites: list[Invite]
+        registration_sessions: list[RegistrationSession]
     """
 
     __tablename__ = "account"
@@ -30,4 +32,9 @@ class Account(AuthBaseModel):
     )
     invites: Mapped[list["Invite"]] = relationship(
         back_populates="account", cascade="all, delete", passive_deletes=True
+    )
+    registration_sessions: Mapped[list["RegistrationSession"]] = relationship(
+        back_populates="account",
+        cascade="all, delete",
+        passive_deletes=True,
     )
