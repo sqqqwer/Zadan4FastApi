@@ -1,14 +1,24 @@
 import datetime
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
+from typing import Any
 from unittest.mock import AsyncMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.dependencies.event_bus import get_event_bus
+from src.core.dependencies.jwt import get_current_claims
 from src.core.events.bus import AbstractEventsBus
+from src.core.main import app
 from src.core.request_context import correlation_id_var
+from src.core.resources.enums import RoleEnum
+from src.core.schemas.token_claims import AccessTokenClaims
 from src.core.services.idempotency import IdempotencyAbstractService
 from src.core.services.uow import UowAbstract
+from src.modules.auth.models import Company, User
+from src.modules.auth.models.members import Members
 from src.modules.tasks.models.task import Task
 from src.modules.tasks.resources.enums import TaskStatusEnum
 from src.modules.tasks.schemas import (
@@ -208,6 +218,7 @@ async def stub_user_directory_user_not_found(
     )
     return stub_user_directory
 
+
 @pytest.fixture
 async def stub_user_directory_user_from_different_company(
     monkeypatch: pytest.MonkeyPatch,
@@ -228,3 +239,165 @@ async def stub_user_directory_user_from_different_company(
         constants.DIFFERRNT_COMPANY_ID,
     )
     return stub_user_directory
+
+
+@pytest.fixture
+def stub_claims(monkeypatch: pytest.MonkeyPatch) -> AccessTokenClaims:
+    """Override the current user claims with test admin claims.
+
+    Args:
+        monkeypatch: Pytest helper for temporary patches.
+
+    Returns:
+        AccessTokenClaims: Test admin claims.
+    """
+    claims = AccessTokenClaims(
+        sub=constants.CURRENT_USER_ID,
+        company_id=constants.COMPANY_ID,
+        role=RoleEnum.ADMIN,
+        iss="test",
+        aud="test",
+        iat=datetime.datetime.now(datetime.UTC),
+        exp=datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1),
+        jti=uuid4(),
+    )
+    dependency: Callable[..., Any] = get_current_claims
+    monkeypatch.setitem(app.dependency_overrides, dependency, lambda: claims)
+    return claims
+
+
+@pytest.fixture
+def mock_task_event_bus(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_event_bus: AsyncMock,
+) -> AsyncMock:
+    """Override the event bus for task HTTP requests.
+
+    Args:
+        monkeypatch: Pytest helper for temporary patches.
+        mock_event_bus: Mock event bus.
+
+    Returns:
+        AsyncMock: Mock event bus.
+    """
+    dependency: Callable[..., Any] = get_event_bus
+    monkeypatch.setitem(app.dependency_overrides, dependency, lambda: mock_event_bus)
+    return mock_event_bus
+
+
+@pytest.fixture
+async def get_async_client(
+    test_db: AsyncSession,
+    stub_claims: AccessTokenClaims,
+    mock_task_event_bus: AsyncMock,
+) -> AsyncIterator[AsyncClient]:
+    """Get an async HTTP client connected to the test database.
+
+    Args:
+        test_db: Database session used by the test.
+        stub_claims: Access token claims of the test admin.
+        mock_task_event_bus: Mock event bus for HTTP requests.
+
+    Yields:
+        AsyncClient: HTTP client for sending requests to the application.
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(
+        transport=transport,
+        base_url="https://test",
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def task_users(test_db: AsyncSession) -> dict[UUID, User]:
+    """Create companies and task participants in the test database.
+
+    Args:
+        test_db: Database session used by the test.
+
+    Returns:
+        dict[UUID, User]: Task participants indexed by their IDs.
+    """
+    company = Company(id=constants.COMPANY_ID, name="Task test company")
+    other_company = Company(id=constants.DIFFERRNT_COMPANY_ID, name="Other task test company")
+    user_ids = {
+        constants.CURRENT_USER_ID,
+        constants.RESPONSIBLE_ID,
+        *constants.OBSERVER_IDS,
+        *constants.EXECUTOR_IDS,
+        constants.UPDATED_RESPONSIBLE_ID,
+        *constants.UPDATED_OBSERVER_IDS,
+        *constants.UPDATED_EXECUTOR_IDS,
+    }
+    users = {
+        user_id: User(
+            id=user_id,
+            first_name="Test",
+            last_name="User",
+            membership=Members(
+                company=company,
+                role=RoleEnum.ADMIN if user_id == constants.CURRENT_USER_ID else RoleEnum.EMPLOYEE,
+            ),
+        )
+        for user_id in user_ids
+    }
+    test_db.add_all([company, other_company, *users.values()])
+    await test_db.commit()
+    return users
+
+
+@pytest.fixture
+async def task_user_state(
+    request: pytest.FixtureRequest,
+    test_db: AsyncSession,
+    task_users: dict[UUID, User],
+) -> None:
+    """Prepare valid, missing or foreign company task participants.
+
+    Args:
+        request: Pytest request containing the selected test parameter.
+        test_db: Database session used by the test.
+        task_users: Task participants saved in the test database.
+    """
+    for user_id in (constants.RESPONSIBLE_ID, constants.UPDATED_RESPONSIBLE_ID):
+        user = task_users[user_id]
+        if request.param == "not_found":
+            await test_db.delete(user)
+        elif request.param == "different_company":
+            user.membership.company_id = constants.DIFFERRNT_COMPANY_ID
+    await test_db.commit()
+
+
+@pytest.fixture
+async def task_state(
+    request: pytest.FixtureRequest,
+    test_db: AsyncSession,
+    task_users: dict[UUID, User],
+    task_creation_payload: TaskCreatePayloadScheme,
+) -> UUID:
+    """Prepare an existing, missing or foreign company task.
+
+    Args:
+        request: Pytest request containing the selected test parameter.
+        test_db: Database session used by the test.
+        task_users: Task participants saved in the test database.
+        task_creation_payload: Task creation data.
+
+    Returns:
+        UUID: Task ID for the HTTP request.
+    """
+    task_id = uuid4()
+    if request.param == "not_found":
+        return task_id
+
+    task = Task(
+        id=task_id,
+        company_id=constants.DIFFERRNT_COMPANY_ID if request.param == "different_company" else constants.COMPANY_ID,
+        author_id=constants.CURRENT_USER_ID,
+        status=TaskStatusEnum.CREATED,
+        **task_creation_payload.model_dump(),
+    )
+    test_db.add(task)
+    await test_db.commit()
+    return task_id
