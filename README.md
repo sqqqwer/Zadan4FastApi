@@ -30,8 +30,6 @@ make docker-up
 ```shell
 make prepare
 ```
-- Тесты границ проходят
-![Тесты границ проходят](boundry_test_srceenshot.png)
 # Переменные окружения
 
 - POSTGRES_USER - пользователь постгреса
