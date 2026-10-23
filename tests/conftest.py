@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-import src.core.dependencies.session as session_dependencies
+import src.core.database as session_dependencies
 from src.core.database import DATABASE_URL
 
 

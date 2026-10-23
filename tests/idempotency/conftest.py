@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-import src.core.dependencies.session as session_dependencies
+import src.core.database as session_dependencies
 from src.core.database import DATABASE_URL
 from src.core.dependencies.event_bus import get_event_bus
 from src.core.dependencies.jwt import get_current_claims
