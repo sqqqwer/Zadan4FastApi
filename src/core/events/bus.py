@@ -3,6 +3,7 @@ from collections.abc import Awaitable, Callable
 from typing import override
 
 from .envelope import EventEnvelope
+from .kafka_adapters import KafkaEventProducer
 from .types import EventType
 
 EventHandler = Callable[[EventEnvelope], Awaitable[None]]
@@ -46,3 +47,29 @@ class InMemoryEventBus(AbstractEventsBus):
     @override
     async def subscribe(self, event_type: EventType, handler: EventHandler) -> None:
         self.event_handlers.setdefault(event_type, []).append(handler)
+
+
+class KafkaEventsBus(AbstractEventsBus):
+    """Event bus using Kafka."""
+
+    def __init__(self) -> None:
+        """Initialize the event bus."""
+        self.producer = KafkaEventProducer()
+        self.event_handlers: dict[EventType, list[EventHandler]] = {}
+
+    @override
+    async def publish(self, envelope: EventEnvelope) -> None:
+        await self.producer.publish(envelope=envelope)
+
+    @override
+    async def subscribe(self, event_type: EventType, handler: EventHandler) -> None:
+        self.event_handlers.setdefault(event_type, []).append(handler)
+
+    async def dispatch(self, envelope: EventEnvelope) -> None:
+        """Call registered handlers for the event type.
+
+        Args:
+            envelope: Event data and metadata.
+        """
+        for handler in self.event_handlers.get(envelope.event_type, []):
+            await handler(envelope)

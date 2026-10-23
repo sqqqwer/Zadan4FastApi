@@ -1,9 +1,11 @@
+from asyncio import TaskGroup
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from src.core.events.bus import InMemoryEventBus
+from src.core.events.bus import KafkaEventsBus
+from src.core.events.kafka_adapters import KafkaEventConsumer
 from src.core.logging.config import setup_logging
 from src.core.resources.exceptions_handler import exception_handlers
 from src.modules.auth.api.v1.auth import router as auth_router
@@ -26,15 +28,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     Yields:
         None: Control while the application is running.
     """
-    bus = InMemoryEventBus()
+    bus = KafkaEventsBus()
+    consumer = KafkaEventConsumer(bus=bus)
+    producer = bus.producer.producer
 
     await auth_subscribe_handlers(bus)
     await org_subscribe_handlers(bus)
     await tasks_subscribe_handlers(bus)
 
-    app.state.event_bus = bus
+    async with producer, consumer.consumer:
+        app.state.event_bus = bus
 
-    yield
+        async with TaskGroup() as tasks:
+            consumer_task = tasks.create_task(consumer.run())
+
+            try:
+                yield
+            finally:
+                consumer_task.cancel()
 
 
 setup_logging()
