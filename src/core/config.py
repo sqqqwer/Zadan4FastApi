@@ -23,6 +23,8 @@ class Settings(BaseSettings):
 
     idempotency_hmac_secret: SecretStr
 
+    kafka_bootstrap_servers: str
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
