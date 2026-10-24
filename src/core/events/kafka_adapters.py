@@ -1,9 +1,10 @@
 from typing import TYPE_CHECKING
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, TopicPartition
-from src.core.request_context import correlation_id_var
+
 from src.core.config import get_settings
 from src.core.database import session_scope
+from src.core.request_context import correlation_id_var
 
 from .envelope import EventEnvelope
 
