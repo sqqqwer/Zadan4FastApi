@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, TopicPartition
-
+from src.core.request_context import correlation_id_var
 from src.core.config import get_settings
 from src.core.database import session_scope
 
@@ -56,11 +56,15 @@ class KafkaEventConsumer:
         """Consume events and commit offsets after successful processing."""
         async for message in self.consumer:
             envelope = EventEnvelope.model_validate_json(message.value)
+            correlation_token = correlation_id_var.set(str(envelope.correlation_id))
 
-            async with session_scope():
-                await self.bus.dispatch(envelope)
+            try:
+                async with session_scope():
+                    await self.bus.dispatch(envelope)
 
-            partition = TopicPartition(message.topic, message.partition)
-            await self.consumer.commit(
-                {partition: message.offset + 1}
-            )
+                partition = TopicPartition(message.topic, message.partition)
+                await self.consumer.commit(
+                    {partition: message.offset + 1}
+                )
+            finally:
+                correlation_id_var.reset(correlation_token)
