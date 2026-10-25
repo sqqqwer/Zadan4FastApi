@@ -8,9 +8,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.dependencies.event_bus import get_event_bus
 from src.core.dependencies.jwt import get_current_claims
-from src.core.events.bus import AbstractEventsBus
 from src.core.main import app
 from src.core.request_context import correlation_id_var
 from src.core.resources.enums import RoleEnum
@@ -26,6 +24,7 @@ from src.modules.tasks.schemas import (
     TaskCreateRepositoryScheme,
 )
 from src.modules.tasks.services.task_service import TaskService
+from src.shared.outbox.repository import OutboxAbstractRepository
 from tests.stubs import StubTasksUserDirectory
 
 from . import constants
@@ -51,20 +50,20 @@ def mock_uow() -> AsyncMock:
     return AsyncMock(spec=UowAbstract)
 
 @pytest.fixture
-def mock_event_bus() -> AsyncMock:
-    """Create a mock event bus.
+def mock_outbox_repository() -> AsyncMock:
+    """Create a mock outbox repository.
 
     Returns:
-        AsyncMock: Mock event bus.
+        AsyncMock: Mock outbox repository.
     """
-    return AsyncMock(spec=AbstractEventsBus)
+    return AsyncMock(spec=OutboxAbstractRepository)
 
 @pytest.fixture
 def stub_user_directory() -> StubTasksUserDirectory:
     """Create a mock user directory.
 
     Returns:
-        UserDirectory: Mock event bus.
+        UserDirectory: Mock outbox repository.
     """
     return StubTasksUserDirectory(company_id=constants.COMPANY_ID)
 
@@ -92,7 +91,7 @@ def correlation_context() -> Iterator[None]:
 def task_service(
     fake_db: FakeDatabase,
     mock_uow: AsyncMock,
-    mock_event_bus: AsyncMock,
+    mock_outbox_repository: AsyncMock,
     stub_user_directory: StubTasksUserDirectory,
 ) -> TaskService:
     """Create a task service for tests.
@@ -100,7 +99,7 @@ def task_service(
     Args:
         fake_db: Fake database used by the test.
         mock_uow: Mock unit of work.
-        mock_event_bus: Mock event bus.
+        mock_outbox_repository: Mock outbox repository.
         stub_user_directory: Stub Task user directory.
 
     Returns:
@@ -115,7 +114,7 @@ def task_service(
         current_user_id=constants.CURRENT_USER_ID,
         company_id=constants.COMPANY_ID,
         user_directory=stub_user_directory,
-        event_bus=mock_event_bus,
+        outbox_repository=mock_outbox_repository,
     )
 
 @pytest.fixture
@@ -266,37 +265,18 @@ def stub_claims(monkeypatch: pytest.MonkeyPatch) -> AccessTokenClaims:
     return claims
 
 
-@pytest.fixture
-def mock_task_event_bus(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_event_bus: AsyncMock,
-) -> AsyncMock:
-    """Override the event bus for task HTTP requests.
-
-    Args:
-        monkeypatch: Pytest helper for temporary patches.
-        mock_event_bus: Mock event bus.
-
-    Returns:
-        AsyncMock: Mock event bus.
-    """
-    dependency: Callable[..., Any] = get_event_bus
-    monkeypatch.setitem(app.dependency_overrides, dependency, lambda: mock_event_bus)
-    return mock_event_bus
 
 
 @pytest.fixture
 async def get_async_client(
     test_db: AsyncSession,
     stub_claims: AccessTokenClaims,
-    mock_task_event_bus: AsyncMock,
 ) -> AsyncIterator[AsyncClient]:
     """Get an async HTTP client connected to the test database.
 
     Args:
         test_db: Database session used by the test.
         stub_claims: Access token claims of the test admin.
-        mock_task_event_bus: Mock event bus for HTTP requests.
 
     Yields:
         AsyncClient: HTTP client for sending requests to the application.

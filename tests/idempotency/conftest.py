@@ -1,7 +1,6 @@
 import datetime
 from collections.abc import AsyncIterator, Callable
 from typing import Any
-from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -12,9 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 import src.core.database as session_dependencies
 from src.core.database import DATABASE_URL
-from src.core.dependencies.event_bus import get_event_bus
 from src.core.dependencies.jwt import get_current_claims
-from src.core.events.bus import AbstractEventsBus
 from src.core.main import app
 from src.core.models.idempotency import Idempotency
 from src.core.repositories.idempotency import IdempotencySqlAlchemyRepository
@@ -135,29 +132,6 @@ def stub_claims(
 
     return claims
 
-@pytest.fixture
-def mock_event_bus(
-    monkeypatch: pytest.MonkeyPatch
-) -> AsyncMock:
-    """Override the event bus with a mock.
-
-    Args:
-        monkeypatch: Pytest helper for temporary patches.
-
-    Returns:
-        AsyncMock: Mock event bus.
-    """
-    bus = AsyncMock(spec=AbstractEventsBus)
-
-    dependency: Callable[..., Any] = get_event_bus
-
-    monkeypatch.setitem(
-        app.dependency_overrides,
-        dependency,
-        lambda: bus,
-    )
-
-    return bus
 
 @pytest.fixture
 def task_create_payload() -> TaskCreatePayloadScheme:

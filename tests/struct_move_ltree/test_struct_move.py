@@ -1,4 +1,3 @@
-from unittest.mock import AsyncMock
 from uuid import UUID
 
 from fastapi import status
@@ -13,7 +12,6 @@ from .constants import STRUCT_NAME
 
 async def test_struct_create(
     get_async_client: AsyncClient,
-    mock_event_bus: AsyncMock,
     stub_claims: AccessTokenClaims,
     struct_create_payload: StructCreateScheme,
     stub_org_user_directory: StubOrgUserDirectory,
@@ -22,7 +20,6 @@ async def test_struct_create(
 
     Args:
         get_async_client: Async HTTP client for the test application.
-        mock_event_bus: Mock event bus.
         stub_claims: Access token claims of the test admin.
         struct_create_payload: Struct creation data.
         stub_org_user_directory: Stub user directory for the org module.
@@ -50,7 +47,6 @@ async def test_struct_create(
 
 async def test_struct_move_to_struct(
     get_async_client: AsyncClient,
-    mock_event_bus: AsyncMock,
     stub_claims: AccessTokenClaims,
     stub_org_user_directory: StubOrgUserDirectory,
 ):
@@ -58,7 +54,6 @@ async def test_struct_move_to_struct(
 
     Args:
         get_async_client: Async HTTP client for the test application.
-        mock_event_bus: Mock event bus.
         stub_claims: Access token claims of the test admin.
         stub_org_user_directory: Stub user directory for the org module.
     """
@@ -142,7 +137,6 @@ async def test_struct_move_to_struct(
 
 async def test_struct_move_to_himself(
     get_async_client: AsyncClient,
-    mock_event_bus: AsyncMock,
     stub_claims: AccessTokenClaims,
     stub_org_user_directory: StubOrgUserDirectory,
 ):
@@ -150,7 +144,6 @@ async def test_struct_move_to_himself(
 
     Args:
         get_async_client: Async HTTP client for the test application.
-        mock_event_bus: Mock event bus.
         stub_claims: Access token claims of the test admin.
         stub_org_user_directory: Stub user directory for the org module.
     """
@@ -180,7 +173,6 @@ async def test_struct_move_to_himself(
 
 async def test_struct_move_to_descendant(
     get_async_client: AsyncClient,
-    mock_event_bus: AsyncMock,
     stub_claims: AccessTokenClaims,
     stub_org_user_directory: StubOrgUserDirectory,
 ):
@@ -188,7 +180,6 @@ async def test_struct_move_to_descendant(
 
     Args:
         get_async_client: Async HTTP client for the test application.
-        mock_event_bus: Mock event bus.
         stub_claims: Access token claims of the test admin.
         stub_org_user_directory: Stub user directory for the org module.
     """

@@ -6,10 +6,8 @@ from uuid import UUID
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from src.core.dependencies.event_bus import get_event_bus
 from src.core.dependencies.idempotency import get_idempotency_service
 from src.core.dependencies.jwt import get_current_claims
-from src.core.events.bus import AbstractEventsBus
 from src.core.main import app
 from src.core.schemas.token_claims import AccessTokenClaims
 from src.core.services.idempotency import IdempotencyAbstractService
@@ -117,29 +115,6 @@ def stub_claims(
 
     return claims
 
-@pytest.fixture
-def mock_event_bus(
-    monkeypatch: pytest.MonkeyPatch
-) -> AsyncMock:
-    """Override the event bus with a mock.
-
-    Args:
-        monkeypatch: Pytest helper for temporary patches.
-
-    Returns:
-        AsyncMock: Mock event bus.
-    """
-    bus = AsyncMock(spec=AbstractEventsBus)
-
-    dependency: Callable[..., Any] = get_event_bus
-
-    monkeypatch.setitem(
-        app.dependency_overrides,
-        dependency,
-        lambda: bus,
-    )
-
-    return bus
 
 @pytest.fixture
 def struct_create_payload() -> StructCreateScheme:

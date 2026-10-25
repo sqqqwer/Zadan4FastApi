@@ -1,6 +1,6 @@
 import datetime
 import hashlib
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 from uuid import UUID, uuid4
@@ -11,8 +11,6 @@ from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.dependencies.event_bus import get_event_bus
-from src.core.events.bus import AbstractEventsBus
 from src.core.main import app
 from src.core.request_context import correlation_id_var
 from src.core.services.idempotency import IdempotencyAbstractService
@@ -33,6 +31,7 @@ from src.modules.auth.services.password_service import PasswordService
 from src.modules.auth.services.registration_service import RegistrationService
 from src.modules.auth.services.registration_session_service import RegistrationSessionService
 from src.modules.auth.services.user_service import UserService
+from src.shared.outbox.repository import OutboxAbstractRepository
 from tests.company_creation.repositories import (
     AccountMockRepository,
     CompanyMockRepository,
@@ -76,13 +75,13 @@ def mock_uow() -> AsyncMock:
 
 
 @pytest.fixture
-def mock_event_bus() -> AsyncMock:
-    """Create a mock event bus.
+def mock_outbox_repository() -> AsyncMock:
+    """Create a mock outbox repository.
 
     Returns:
-        AsyncMock: Mock event bus.
+        AsyncMock: Mock outbox repository.
     """
-    return AsyncMock(spec=AbstractEventsBus)
+    return AsyncMock(spec=OutboxAbstractRepository)
 
 @pytest.fixture
 def mock_idempotency() -> AsyncMock:
@@ -133,7 +132,7 @@ def mock_registration_session_service() -> AsyncMock:
 def registration_service(
     fake_db: FakeDatabase,
     mock_uow: AsyncMock,
-    mock_event_bus: AsyncMock,
+    mock_outbox_repository: AsyncMock,
     mock_registration_session_service: AsyncMock,
 ) -> RegistrationService:
     """Create a registration service for tests.
@@ -141,7 +140,7 @@ def registration_service(
     Args:
         fake_db: Fake database used by the test.
         mock_uow: Mock unit of work.
-        mock_event_bus: Mock event bus.
+        mock_outbox_repository: Mock outbox repository.
         mock_registration_session_service: Mock registration session service.
 
     Returns:
@@ -154,7 +153,7 @@ def registration_service(
         password_service=PasswordService(),
         registration_session_service=mock_registration_session_service,
         uow=mock_uow,
-        event_bus=mock_event_bus,
+        outbox_repository=mock_outbox_repository,
     )
 
 
@@ -337,13 +336,11 @@ def user_admin_and_company_registration_payload() -> UserAdminAndCompanyRegistra
 @pytest.fixture
 async def get_async_client(
     test_db: AsyncSession,
-    mock_registration_event_bus: AsyncMock,
 ) -> AsyncIterator[AsyncClient]:
     """Get an async HTTP client connected to the test database.
 
     Args:
         test_db: Database session used by the test.
-        mock_registration_event_bus: Mock event bus for HTTP requests.
 
     Yields:
         AsyncClient: HTTP client for sending requests to the application.
@@ -357,28 +354,6 @@ async def get_async_client(
         yield client
 
 
-@pytest.fixture
-def mock_registration_event_bus(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_event_bus: AsyncMock,
-) -> AsyncMock:
-    """Override the event bus for registration HTTP requests.
-
-    Args:
-        monkeypatch: Pytest helper for temporary patches.
-        mock_event_bus: Mock event bus.
-
-    Returns:
-        AsyncMock: Mock event bus.
-    """
-    dependency: Callable[..., Any] = get_event_bus
-    monkeypatch.setitem(
-        app.dependency_overrides,
-        dependency,
-        lambda: mock_event_bus,
-    )
-
-    return mock_event_bus
 
 
 @pytest.fixture

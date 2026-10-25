@@ -308,14 +308,17 @@ async def test_task_change_status(
     task_service: TaskService,
     new_task: Task,
     mock_uow: AsyncMock,
+    mock_outbox_repository: AsyncMock,
 ):
-    """Check that the task status is changed and committed.
+    """Check that the task status event is added before the change is committed.
 
     Args:
         task_service: Task service used by the test.
         new_task: Task created for the test.
         mock_uow: Mock unit of work.
+        mock_outbox_repository: Mock outgoing event repository.
     """
+    mock_outbox_repository.add.side_effect = lambda **kwargs: mock_uow.commit.assert_not_awaited()
     response = await task_service.change_state(
         id=new_task.id,
         payload=TaskStatusScheme(status=TaskStatusEnum.ACTIVE),
@@ -324,6 +327,13 @@ async def test_task_change_status(
     assert response.id == new_task.id
     assert response.status == TaskStatusEnum.ACTIVE
     assert new_task.status == TaskStatusEnum.ACTIVE
+    assert new_task.status_version == 1
+
+    mock_outbox_repository.add.assert_awaited_once()
+    event = mock_outbox_repository.add.call_args.kwargs["envelope"]
+    assert event.aggregate_id == new_task.id
+    assert event.payload["new_status_version"] == new_task.status_version
+    assert mock_outbox_repository.add.call_args.kwargs["dedup_key"] == f"task.status_changed:{new_task.id}:1"
 
     mock_uow.commit.assert_awaited_once()
 

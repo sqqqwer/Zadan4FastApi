@@ -1,4 +1,3 @@
-from unittest.mock import AsyncMock
 from uuid import UUID
 
 import pytest
@@ -54,7 +53,6 @@ async def test_param_idempotency_task_create(  # noqa: PLR0913, PLR0917
     get_async_client: AsyncClient,
     idempotency_key: UUID,
 
-    mock_event_bus: AsyncMock,
     stub_claims: AccessTokenClaims,
     stub_tasks_user_directory: StubTasksUserDirectory,
     stub_org_user_directory: StubOrgUserDirectory,
@@ -67,7 +65,6 @@ async def test_param_idempotency_task_create(  # noqa: PLR0913, PLR0917
         expected_status_code: Expected HTTP status code for both requests.
         get_async_client: Async HTTP client for the test application.
         idempotency_key: Idempotency key shared by both requests.
-        mock_event_bus: Mock event bus.
         stub_claims: Access token claims of the test admin.
         stub_tasks_user_directory: Stub user directory for the tasks module.
         stub_org_user_directory: Stub user directory for the org module.

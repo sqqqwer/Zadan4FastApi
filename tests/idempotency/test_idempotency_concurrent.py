@@ -38,7 +38,7 @@ async def wait_for_both_requests(session: AsyncSession, blocker_pid: int) -> Non
         await asyncio.sleep(0.01)
 
 
-@pytest.mark.usefixtures("stub_tasks_user_directory", "mock_event_bus", "fail_first_save")
+@pytest.mark.usefixtures("stub_tasks_user_directory", "fail_first_save")
 @pytest.mark.parametrize(
     argnames=["scenario", "expected_status_codes", "expected_count"],
     argvalues=[

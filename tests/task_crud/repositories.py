@@ -61,7 +61,8 @@ class TaskMockRepository(
         task = Task(
             **scheme.model_dump(),
             id=uuid4(),
-            company_id=self.company_id
+            company_id=self.company_id,
+            status_version=0,
         )
         self.db.tasks[task.id] = task
         return task
