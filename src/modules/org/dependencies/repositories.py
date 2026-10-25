@@ -4,7 +4,9 @@ from fastapi import Depends
 
 from src.core.dependencies.jwt import AccessTokenClaimsDependency
 from src.core.dependencies.session import SessionDependency
+from src.shared.outbox.repository import OutboxAbstractRepository, OutboxSqlAlchemyRepository
 
+from ..models.outbox_messages import OutboxMessagesOrg
 from ..repositories.abstracts import (
     PositionAbstractRepository,
     StructAbstractRepository,
@@ -43,5 +45,18 @@ def get_struct_repository(session: SessionDependency, claims: AccessTokenClaimsD
     return StructSqlAlchemyRepository(session=session, company_id=claims.company_id)
 
 
+def get_outbox_repository(session: SessionDependency) -> OutboxAbstractRepository:
+    """Get the org outbox repository.
+
+    Args:
+        session: Database session used by the repository.
+
+    Returns:
+        OutboxAbstractRepository: Outbox repository for org events.
+    """
+    return OutboxSqlAlchemyRepository(session=session, model=OutboxMessagesOrg)
+
+
+OutboxRepositoryDependency = Annotated[OutboxAbstractRepository, Depends(get_outbox_repository)]
 PositionRepositoryDependency = Annotated[PositionAbstractRepository, Depends(get_position_repository)]
 StructRepositoryDependency = Annotated[StructAbstractRepository, Depends(get_struct_repository)]

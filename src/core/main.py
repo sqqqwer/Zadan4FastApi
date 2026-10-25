@@ -36,16 +36,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await org_subscribe_handlers(bus)
     await tasks_subscribe_handlers(bus)
 
-    async with producer, consumer.consumer:
-        app.state.event_bus = bus
+    async with producer, consumer.consumer, TaskGroup() as tasks:
+        consumer_task = tasks.create_task(consumer.run())
 
-        async with TaskGroup() as tasks:
-            consumer_task = tasks.create_task(consumer.run())
-
-            try:
-                yield
-            finally:
-                consumer_task.cancel()
+        try:
+            yield
+        finally:
+            consumer_task.cancel()
 
 
 setup_logging()

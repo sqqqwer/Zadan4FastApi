@@ -3,7 +3,6 @@ import logging
 from typing import override
 from uuid import UUID, uuid4
 
-from src.core.events.bus import AbstractEventsBus
 from src.core.events.envelope import EventEnvelope
 from src.core.events.types import EventType
 from src.core.request_context import correlation_id_var
@@ -11,6 +10,7 @@ from src.core.resources.exceptions import NotFoundError
 from src.core.services.crud import CrudAbstractService
 from src.core.services.idempotency import IdempotencyAbstractService
 from src.core.services.uow import UowAbstract
+from src.shared.outbox.repository import OutboxAbstractRepository
 
 from ..ports import UserDirectory
 from ..repositories.abstracts import TaskAbstractRepository
@@ -45,7 +45,7 @@ class TaskService(CrudAbstractService[TaskCreatePayloadScheme, TaskCreatePayload
         current_user_id: UUID,
         company_id: UUID,
         user_directory: UserDirectory,
-        event_bus: AbstractEventsBus,
+        outbox_repository: OutboxAbstractRepository,
     ):
         """Initialize the service.
 
@@ -55,7 +55,7 @@ class TaskService(CrudAbstractService[TaskCreatePayloadScheme, TaskCreatePayload
             current_user_id: Current user ID.
             company_id: Company ID.
             user_directory: User directory used to get user data.
-            event_bus: Event bus used to publish events.
+            outbox_repository: Database repository for outgoing events.
         """
         super().__init__(
             crud_repository=crud_repository,
@@ -66,7 +66,7 @@ class TaskService(CrudAbstractService[TaskCreatePayloadScheme, TaskCreatePayload
         )
         self.task_repository = crud_repository
         self.user_directory = user_directory
-        self.event_bus = event_bus
+        self.outbox_repository = outbox_repository
 
     async def create(
         self, payload: TaskCreatePayloadScheme, idempotency: IdempotencyAbstractService
@@ -211,15 +211,9 @@ class TaskService(CrudAbstractService[TaskCreatePayloadScheme, TaskCreatePayload
 
         old_status = task.status.value
         task = await self.task_repository.update_status(task=task, scheme=payload)
+        task.status_version += 1
 
         response = self.response_scheme.model_validate(task)
-
-        await self.uow.commit()
-
-        logger.info(
-            f"{self._get_model_name()} change state: id={response.id}"
-            f" old_status={old_status} new_status={payload.status}."
-        )
 
         envelope = EventEnvelope(
             event_id=uuid4(),
@@ -236,10 +230,22 @@ class TaskService(CrudAbstractService[TaskCreatePayloadScheme, TaskCreatePayload
                 "user_changed_state_id": self.current_user_id,
                 "old_status": old_status,
                 "new_status": task.status.value,
+                "new_status_version": task.status_version,
             },
         )
-        logger.info("task.status_changed Event start publish.")
-        await self.event_bus.publish(envelope)
+
+        await self.outbox_repository.add(
+            envelope=envelope,
+            dedup_key=f"task.status_changed:{task.id}:{task.status_version}",
+        )
+
+        await self.uow.commit()
+
+        logger.info(
+            f"{self._get_model_name()} change state: id={response.id}"
+            f" old_status={old_status} new_status={payload.status}."
+        )
+        logger.info(f"task.status_changed Event written to outbox: event_id={envelope.event_id}")
 
         return response
 

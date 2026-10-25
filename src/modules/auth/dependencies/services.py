@@ -3,7 +3,6 @@ from typing import Annotated
 from fastapi import Depends
 from pydantic import SecretStr
 
-from src.core.dependencies.event_bus import EventBusDependency
 from src.core.dependencies.jwt import JwtSettingsDependency
 from src.core.dependencies.uow import UowDependency
 
@@ -16,6 +15,7 @@ from .password_hasher import PasswordHasherDependency
 from .repositories import (
     AccountRepositoryDependency,
     CompanyRepositoryDependency,
+    OutboxRepositoryDependency,
     RefreshSessionRepositoryDependency,
     RegistrationSessionRepositoryDependency,
     UserRepositoryDependency,
@@ -66,7 +66,7 @@ def get_registration_service(  # noqa: PLR0913, PLR0917
     password_service: PasswordHasherDependency,
     registration_session_service: RegistrationSessionServiceDependency,
     uow: UowDependency,
-    event_bus: EventBusDependency,
+    outbox_repository: OutboxRepositoryDependency,
 ) -> RegistrationService:
     """Get the registration service.
 
@@ -77,7 +77,7 @@ def get_registration_service(  # noqa: PLR0913, PLR0917
         password_service: Service for hashing and checking passwords.
         registration_session_service: Registration session service.
         uow: Unit of work for database operations.
-        event_bus: Event bus used to publish events.
+        outbox_repository: Database repository for outgoing events.
 
     Returns:
         RegistrationService: Registration service.
@@ -89,7 +89,7 @@ def get_registration_service(  # noqa: PLR0913, PLR0917
         password_service=password_service,
         registration_session_service=registration_session_service,
         uow=uow,
-        event_bus=event_bus,
+        outbox_repository=outbox_repository,
     )
 
 

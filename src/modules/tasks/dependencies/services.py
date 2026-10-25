@@ -2,12 +2,11 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from src.core.dependencies.event_bus import EventBusDependency
 from src.core.dependencies.jwt import AccessTokenClaimsDependency
 from src.core.dependencies.uow import UowDependency
 
 from ..services.task_service import TaskService
-from .reposiroties import TaskRepositoryDependency
+from .reposiroties import OutboxRepositoryDependency, TaskRepositoryDependency
 from .user_directory import UserDirectoryDependency
 
 
@@ -16,7 +15,7 @@ def get_task_service(
     uow: UowDependency,
     claims: AccessTokenClaimsDependency,
     user_directory: UserDirectoryDependency,
-    event_bus: EventBusDependency,
+    outbox_repository: OutboxRepositoryDependency,
 ) -> TaskService:
     """Get the task service.
 
@@ -25,7 +24,7 @@ def get_task_service(
         uow: Unit of work for database operations.
         claims: Current user access token claims.
         user_directory: User directory used to get user data.
-        event_bus: Event bus used to publish events.
+        outbox_repository: Database repository for outgoing events.
 
     Returns:
         TaskService: Task service.
@@ -36,7 +35,7 @@ def get_task_service(
         current_user_id=claims.sub,
         company_id=claims.company_id,
         user_directory=user_directory,
-        event_bus=event_bus,
+        outbox_repository=outbox_repository,
     )
 
 

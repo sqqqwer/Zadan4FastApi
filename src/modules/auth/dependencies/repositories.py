@@ -3,7 +3,9 @@ from typing import Annotated
 from fastapi import Depends
 
 from src.core.dependencies.session import SessionDependency
+from src.shared.outbox.repository import OutboxAbstractRepository, OutboxSqlAlchemyRepository
 
+from ..models.outbox_messages import OutboxMessagesAuth
 from ..repositories.abstracts import (
     AccountAbstractRepository,
     CompanyAbstractRepository,
@@ -80,6 +82,19 @@ def get_registration_session_repository(session: SessionDependency) -> Registrat
     return RegistrationSessionSqlAlchemyRepository(session)
 
 
+def get_outbox_repository(session: SessionDependency) -> OutboxAbstractRepository:
+    """Get the auth outbox repository.
+
+    Args:
+        session: Database session used by the repository.
+
+    Returns:
+        OutboxAbstractRepository: Outbox repository for auth events.
+    """
+    return OutboxSqlAlchemyRepository(session=session, model=OutboxMessagesAuth)
+
+
+OutboxRepositoryDependency = Annotated[OutboxAbstractRepository, Depends(get_outbox_repository)]
 RegistrationSessionRepositoryDependency = Annotated[
     RegistrationSessionAbstractRepository, Depends(get_registration_session_repository)
 ]

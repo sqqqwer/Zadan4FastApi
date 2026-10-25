@@ -20,6 +20,7 @@ class Task(TasksBaseModel):
         description: str | None
         deadline: datetime
         status: TaskStatusEnum
+        status_version: int
         estimated_minutes: int
         author_id: UUID
         responsible_id: UUID
@@ -42,6 +43,11 @@ class Task(TasksBaseModel):
             values_callable=lambda enum_class: [item.value for item in enum_class],
         )
     )
+    status_version: Mapped[int] = mapped_column(
+        default=0,
+        server_default="0"
+    )
+
     estimated_minutes: Mapped[int] = mapped_column(
         default=0,
     )

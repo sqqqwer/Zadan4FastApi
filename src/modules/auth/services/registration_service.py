@@ -7,13 +7,13 @@ from uuid import UUID, uuid4
 from pydantic import EmailStr
 
 from src.core.config import get_settings
-from src.core.events.bus import AbstractEventsBus
 from src.core.events.envelope import EventEnvelope
 from src.core.events.types import EventType
 from src.core.request_context import correlation_id_var
 from src.core.resources.enums import RoleEnum
 from src.core.services.idempotency import IdempotencyAbstractService
 from src.core.services.uow import UowAbstract
+from src.shared.outbox.repository import OutboxAbstractRepository
 
 from ..models import Account, Invite
 from ..repositories import AccountAbstractRepository, CompanyAbstractRepository, UserAbstractRepository
@@ -78,7 +78,7 @@ class RegistrationService:
         password_service: AbstractPasswordService,
         registration_session_service: AbstractRegistrationSessionService,
         uow: UowAbstract,
-        event_bus: AbstractEventsBus,
+        outbox_repository: OutboxAbstractRepository,
     ):
         """Initialize the service.
 
@@ -89,7 +89,7 @@ class RegistrationService:
             password_service: Service for hashing and checking passwords.
             registration_session_service: Registration session service.
             uow: Unit of work for database operations.
-            event_bus: Event bus used to publish events.
+            outbox_repository: Database repository for outgoing events.
         """
         self.account_repository = account_repository
         self.user_repository = user_repository
@@ -97,7 +97,7 @@ class RegistrationService:
         self.password_service = password_service
         self.registration_session_service = registration_session_service
         self.uow = uow
-        self.event_bus = event_bus
+        self.outbox_repository = outbox_repository
 
     async def check_account_email(self, account_email: EmailStr, idempotency: IdempotencyAbstractService) -> None:
         """Check that the email is available and create a registration invite.
@@ -269,8 +269,6 @@ class RegistrationService:
         )
 
         await self.registration_session_service.consume(registration_session)
-        await self.uow.commit()
-        logger.info(f"Company '{response.company_name}' and admin user id={response.user_id} created.")
 
         envelope = EventEnvelope(
             event_id=uuid4(),
@@ -287,8 +285,15 @@ class RegistrationService:
                 "company_name": company.name,
             },
         )
-        logger.info("company.created Event start publish.")
-        await self.event_bus.publish(envelope)
+        await self.outbox_repository.add(
+            envelope=envelope,
+            dedup_key=f"company.created:{company.id}",
+        )
+
+        await self.uow.commit()
+
+        logger.info(f"Company '{response.company_name}' and admin user id={response.user_id} created.")
+        logger.info(f"company.created Event written to outbox: event_id={envelope.event_id}")
 
         return response
 
@@ -361,9 +366,6 @@ class RegistrationService:
             )
         )
 
-        await self.uow.commit()
-        logger.info(f"Preliminary user created for employee id={response.id} in company id={company.id}")
-
         envelope = EventEnvelope(
             event_id=uuid4(),
             event_type=EventType.EMPLOYEE_CREATED,
@@ -380,8 +382,15 @@ class RegistrationService:
                 "user_role": membership.role,
             },
         )
-        logger.info("employee.created Event start publish.")
-        await self.event_bus.publish(envelope)
+        await self.outbox_repository.add(
+            envelope=envelope,
+            dedup_key=f"employee.created:{user.id}",
+        )
+
+        await self.uow.commit()
+
+        logger.info(f"Preliminary user created for employee id={response.id} in company id={company.id}")
+        logger.info(f"employee.created Event written to outbox: event_id={envelope.event_id}")
 
         return response
 
@@ -452,12 +461,6 @@ class RegistrationService:
             )
         )
 
-        await self.uow.commit()
-
-        logger.info(
-            f"Employee user id={response.id} confirmed registration in company id={user.membership.company_id}."
-        )
-
         envelope = EventEnvelope(
             event_id=uuid4(),
             event_type=EventType.EMPLOYEE_REGISTERED,
@@ -469,8 +472,17 @@ class RegistrationService:
             producer=EVENT_PRODUCER,
             payload={"user_id": user.id, "company_id": user.membership.company_id, "user_role": user.membership.role},
         )
-        logger.info("employee.registered Event start publish.")
-        await self.event_bus.publish(envelope)
+        await self.outbox_repository.add(
+            envelope=envelope,
+            dedup_key=f"employee.registered:{user.id}",
+        )
+
+        await self.uow.commit()
+
+        logger.info(
+            f"Employee user id={response.id} confirmed registration in company id={user.membership.company_id}."
+        )
+        logger.info(f"employee.registered Event written to outbox: event_id={envelope.event_id}")
 
         return response
 
@@ -574,10 +586,6 @@ class RegistrationService:
             )
         )
 
-        await self.uow.commit()
-
-        logger.info(f"Email for account id={account.id} was changed.")
-
         envelope = EventEnvelope(
             event_id=uuid4(),
             event_type=EventType.EMPLOYEE_EMAIL_CHANGED,
@@ -593,8 +601,15 @@ class RegistrationService:
                 "new_email": reassigned_account.email,
             },
         )
-        logger.info("employee.email_changed Event start publish.")
-        await self.event_bus.publish(envelope)
+        await self.outbox_repository.add(
+            envelope=envelope,
+            dedup_key=f"employee.email_changed:{user_id}:{invite.id}",
+        )
+
+        await self.uow.commit()
+
+        logger.info(f"Email for account id={account.id} was changed.")
+        logger.info(f"employee.email_changed Event written to outbox: event_id={envelope.event_id}")
 
         return response
 
