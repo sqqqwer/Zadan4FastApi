@@ -19,4 +19,5 @@ async def get_session() -> AsyncIterator[AsyncSession]:
     async with session_scope() as session:
         yield session
 
+
 SessionDependency = Annotated[AsyncSession, Depends(get_session, scope="function")]

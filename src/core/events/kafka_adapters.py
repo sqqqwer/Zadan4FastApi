@@ -17,9 +17,7 @@ class KafkaEventProducer:
 
     def __init__(self) -> None:
         """Initialize the Kafka producer."""
-        self.producer = AIOKafkaProducer(
-            bootstrap_servers=get_settings().kafka_bootstrap_servers
-        )
+        self.producer = AIOKafkaProducer(bootstrap_servers=get_settings().kafka_bootstrap_servers)
 
     async def publish(self, envelope: EventEnvelope) -> None:
         """Publish an event to its producer's topic.
@@ -32,6 +30,7 @@ class KafkaEventProducer:
             key=str(envelope.aggregate_id).encode("utf-8"),
             value=envelope.model_dump_json().encode("utf-8"),
         )
+
 
 class KafkaEventConsumer:
     """Event consumer using Kafka."""
@@ -64,8 +63,6 @@ class KafkaEventConsumer:
                     await self.bus.dispatch(envelope)
 
                 partition = TopicPartition(message.topic, message.partition)
-                await self.consumer.commit(
-                    {partition: message.offset + 1}
-                )
+                await self.consumer.commit({partition: message.offset + 1})
             finally:
                 correlation_id_var.reset(correlation_token)
