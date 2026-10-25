@@ -1,9 +1,16 @@
 from sqlalchemy import MetaData
 
-from src.core.models.base import BaseModel
+from src.core.models.base import BaseModel, BaseModelWithoutId
 
 
-class OrgBaseModel(BaseModel):
+class OrgBaseModelWithoutId(BaseModelWithoutId):
+    """Base database model for the org schema without a predefined primary key."""
+
+    __abstract__ = True
+    metadata = MetaData(schema="org")
+
+
+class OrgBaseModel(OrgBaseModelWithoutId, BaseModel):
     """Base database model for the org module.
 
     Attributes:
@@ -11,4 +18,3 @@ class OrgBaseModel(BaseModel):
     """
 
     __abstract__ = True
-    metadata = MetaData(schema="org")

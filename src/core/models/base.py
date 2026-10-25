@@ -3,7 +3,13 @@ from sqlalchemy.orm import DeclarativeBase
 from .mixins import IdPrimaryKeyMixin
 
 
-class BaseModel(IdPrimaryKeyMixin, DeclarativeBase):
+class BaseModelWithoutId(DeclarativeBase):
+    """Base database model without a predefined primary key."""
+
+    __abstract__ = True
+
+
+class BaseModel(IdPrimaryKeyMixin, BaseModelWithoutId):
     """Base database model.
 
     Attributes:
