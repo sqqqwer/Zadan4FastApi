@@ -1,6 +1,7 @@
 from .account import Account
 from .base import AuthBaseModel
 from .company import Company
+from .inbox_messages import InboxMessagesAuth
 from .invite import Invite
 from .members import Members
 from .outbox_messages import OutboxMessagesAuth
@@ -13,6 +14,7 @@ __all__ = [
     "Account",
     "AuthBaseModel",
     "Company",
+    "InboxMessagesAuth",
     "Invite",
     "Members",
     "OutboxMessagesAuth",
