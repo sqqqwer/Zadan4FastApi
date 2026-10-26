@@ -52,9 +52,9 @@ class InMemoryEventBus(AbstractEventsBus):
 class KafkaEventsBus(AbstractEventsBus):
     """Event bus using Kafka."""
 
-    def __init__(self) -> None:
-        """Initialize the event bus."""
-        self.producer = KafkaEventProducer()
+    def __init__(self, producer: KafkaEventProducer | None = None) -> None:
+        """Initialize the event bus with an optional shared producer."""
+        self.producer = producer if producer is not None else KafkaEventProducer()
         self.event_handlers: dict[EventType, list[EventHandler]] = {}
 
     @override

@@ -1,10 +1,13 @@
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, TopicPartition
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
 from src.core.database import session_scope
 from src.core.request_context import correlation_id_var
+from src.shared.inbox.repository import InboxAbstractRepository
 
 from .envelope import EventEnvelope
 
@@ -35,19 +38,28 @@ class KafkaEventProducer:
 class KafkaEventConsumer:
     """Event consumer using Kafka."""
 
-    def __init__(self, bus: "KafkaEventsBus") -> None:
+    def __init__(
+        self,
+        bus: "KafkaEventsBus",
+        inbox_factory: Callable[[AsyncSession], InboxAbstractRepository],
+        consumer_name: str,
+    ) -> None:
         """Initialize the Kafka consumer.
 
         Args:
             bus: Event bus used to dispatch received events.
+            inbox_factory: Create an inbox repository bound to the current message's session.
+            consumer_name: Stable module consumer name, also used as the Kafka group ID.
         """
         self.bus = bus
+        self.inbox_factory = inbox_factory
+        self.consumer_name = consumer_name
         self.consumer = AIOKafkaConsumer(
             "auth.events",
             "org.events",
             "tasks.events",
             bootstrap_servers=get_settings().kafka_bootstrap_servers,
-            group_id="tasks-platform",
+            group_id=consumer_name,
             enable_auto_commit=False,
             auto_offset_reset="earliest",
         )
@@ -59,8 +71,10 @@ class KafkaEventConsumer:
             correlation_token = correlation_id_var.set(str(envelope.correlation_id))
 
             try:
-                async with session_scope():
-                    await self.bus.dispatch(envelope)
+                async with session_scope() as session:
+                    inbox = self.inbox_factory(session)
+                    if await inbox.try_register(consumer_name=self.consumer_name, event_id=envelope.event_id):
+                        await self.bus.dispatch(envelope)
 
                 partition = TopicPartition(message.topic, message.partition)
                 await self.consumer.commit({partition: message.offset + 1})

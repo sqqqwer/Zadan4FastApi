@@ -43,10 +43,7 @@ class Task(TasksBaseModel):
             values_callable=lambda enum_class: [item.value for item in enum_class],
         )
     )
-    status_version: Mapped[int] = mapped_column(
-        default=0,
-        server_default="0"
-    )
+    status_version: Mapped[int] = mapped_column(default=0, server_default="0")
 
     estimated_minutes: Mapped[int] = mapped_column(
         default=0,
