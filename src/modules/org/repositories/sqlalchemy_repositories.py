@@ -10,11 +10,18 @@ from ..models.struct_adm import StructAdm
 from ..models.struct_adm_positions import StructAdmPositions
 from ..models.types import LtreeType
 from ..models.users_positions import UsersPositions
+from ..models.users_replica import UsersReplicaOrg
 from ..schemas import (
     PositionCreateScheme,
     StructCreateScheme,
 )
-from .abstracts import OrgBaseRepository, PositionAbstractRepository, StructAbstractRepository
+from ..schemas.users_replica import ReplicaUserCreateScheme
+from .abstracts import (
+    OrgBaseRepository,
+    PositionAbstractRepository,
+    ReplicaUserAbstractRepository,
+    StructAbstractRepository,
+)
 
 
 class OrgBaseSqlAlchemyRepository(OrgBaseRepository):
@@ -247,3 +254,30 @@ class PositionSqlAlchemyRepository(OrgBaseSqlAlchemyRepository, PositionAbstract
     @override
     async def user_position_delete(self, user_position: UsersPositions) -> None:
         await self.session.delete(user_position)
+
+
+class ReplicaUserSqlAlchemyRepository(ReplicaUserAbstractRepository):
+    """SQLAlchemy repository for the org user replica."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        """Use the database session owned by the caller."""
+        self.session = session
+
+    @override
+    async def create(self, scheme: ReplicaUserCreateScheme) -> UsersReplicaOrg:
+        user = UsersReplicaOrg(**scheme.model_dump())
+        self.session.add(user)
+        return user
+
+    @override
+    async def get_user(self, user_id: UUID) -> UsersReplicaOrg | None:
+        statement = select(UsersReplicaOrg).where(UsersReplicaOrg.id == user_id)
+        return await self.session.scalar(statement)
+
+    @override
+    async def get_many(self, user_ids: list[UUID]) -> list[UsersReplicaOrg]:
+        if not user_ids:
+            return []
+        statement = select(UsersReplicaOrg).where(UsersReplicaOrg.id.in_(user_ids))
+        users = await self.session.scalars(statement)
+        return list(users.all())

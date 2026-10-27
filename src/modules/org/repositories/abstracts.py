@@ -8,10 +8,12 @@ from ..models.position import Position
 from ..models.struct_adm import StructAdm
 from ..models.struct_adm_positions import StructAdmPositions
 from ..models.users_positions import UsersPositions
+from ..models.users_replica import UsersReplicaOrg
 from ..schemas import (
     PositionCreateScheme,
     StructCreateScheme,
 )
+from ..schemas.users_replica import ReplicaUserCreateScheme
 
 
 class OrgBaseRepository(BaseRepository):
@@ -302,4 +304,23 @@ class PositionAbstractRepository(
         Args:
             user_position: Assignment of a user to a position.
         """
+        ...
+
+
+class ReplicaUserAbstractRepository(BaseRepository):
+    """Repository interface for local user replicas."""
+
+    @abstractmethod
+    async def create(self, scheme: ReplicaUserCreateScheme) -> UsersReplicaOrg:
+        """Create a user replica without committing the transaction."""
+        ...
+
+    @abstractmethod
+    async def get_user(self, user_id: UUID) -> UsersReplicaOrg | None:
+        """Get a user replica by ID."""
+        ...
+
+    @abstractmethod
+    async def get_many(self, user_ids: list[UUID]) -> list[UsersReplicaOrg]:
+        """Get the user replicas matching the given IDs."""
         ...

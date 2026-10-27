@@ -5,8 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.task import Task
+from ..models.users_replica import UsersReplicaTasks
 from ..schemas import TaskCreateRepositoryScheme, TaskStatusScheme, TaskUpdateRepositoryScheme
-from .abstracts import TaskAbstractRepository, TasksBaseRepository
+from ..schemas.users_replica import ReplicaUserCreateScheme
+from .abstracts import ReplicaUserAbstractRepository, TaskAbstractRepository, TasksBaseRepository
 
 
 class TasksModuleBaseSqlAlchemyRepository(TasksBaseRepository):
@@ -64,3 +66,30 @@ class TaskSqlAlchemyRepository(TasksModuleBaseSqlAlchemyRepository, TaskAbstract
     async def update_status(self, task: Task, scheme: TaskStatusScheme) -> Task:
         task.status = scheme.status
         return task
+
+
+class ReplicaUserSqlAlchemyRepository(ReplicaUserAbstractRepository):
+    """SQLAlchemy repository for the tasks user replica."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        """Use the database session owned by the caller."""
+        self.session = session
+
+    @override
+    async def create(self, scheme: ReplicaUserCreateScheme) -> UsersReplicaTasks:
+        user = UsersReplicaTasks(**scheme.model_dump())
+        self.session.add(user)
+        return user
+
+    @override
+    async def get_user(self, user_id: UUID) -> UsersReplicaTasks | None:
+        statement = select(UsersReplicaTasks).where(UsersReplicaTasks.id == user_id)
+        return await self.session.scalar(statement)
+
+    @override
+    async def get_many(self, user_ids: list[UUID]) -> list[UsersReplicaTasks]:
+        if not user_ids:
+            return []
+        statement = select(UsersReplicaTasks).where(UsersReplicaTasks.id.in_(user_ids))
+        users = await self.session.scalars(statement)
+        return list(users.all())

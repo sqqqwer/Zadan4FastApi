@@ -7,8 +7,8 @@ from src.core.dependencies.session import SessionDependency
 from src.shared.outbox.repository import OutboxAbstractRepository, OutboxSqlAlchemyRepository
 
 from ..models.outbox_messages import OutboxMessagesTasks
-from ..repositories.abstracts import TaskAbstractRepository
-from ..repositories.sqlalchemy_repositories import TaskSqlAlchemyRepository
+from ..repositories.abstracts import ReplicaUserAbstractRepository, TaskAbstractRepository
+from ..repositories.sqlalchemy_repositories import ReplicaUserSqlAlchemyRepository, TaskSqlAlchemyRepository
 
 
 def get_task_repository(session: SessionDependency, claims: AccessTokenClaimsDependency) -> TaskAbstractRepository:
@@ -36,5 +36,18 @@ def get_outbox_repository(session: SessionDependency) -> OutboxAbstractRepositor
     return OutboxSqlAlchemyRepository(session=session, model=OutboxMessagesTasks)
 
 
+def get_replica_user_repository(session: SessionDependency) -> ReplicaUserAbstractRepository:
+    """Get the tasks user replica repository.
+
+    Args:
+        session: Database session used by the repository.
+
+    Returns:
+        ReplicaUserAbstractRepository: Repository for the tasks user replicas.
+    """
+    return ReplicaUserSqlAlchemyRepository(session=session)
+
+
 OutboxRepositoryDependency = Annotated[OutboxAbstractRepository, Depends(get_outbox_repository)]
 TaskRepositoryDependency = Annotated[TaskAbstractRepository, Depends(get_task_repository)]
+ReplicaUserRepositoryDependency = Annotated[ReplicaUserAbstractRepository, Depends(get_replica_user_repository)]

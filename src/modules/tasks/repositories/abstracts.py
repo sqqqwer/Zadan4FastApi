@@ -5,7 +5,9 @@ from src.core.repositories.base import BaseRepository
 from src.core.repositories.crud import CrudAbstractRepository
 
 from ..models.task import Task
+from ..models.users_replica import UsersReplicaTasks
 from ..schemas import TaskCreateRepositoryScheme, TaskStatusScheme, TaskUpdateRepositoryScheme
+from ..schemas.users_replica import ReplicaUserCreateScheme
 
 
 class TasksBaseRepository(BaseRepository):
@@ -109,4 +111,23 @@ class TaskAbstractRepository(
         Returns:
             Task: Task object.
         """
+        ...
+
+
+class ReplicaUserAbstractRepository(BaseRepository):
+    """Repository interface for local user replicas."""
+
+    @abstractmethod
+    async def create(self, scheme: ReplicaUserCreateScheme) -> UsersReplicaTasks:
+        """Create a user replica without committing the transaction."""
+        ...
+
+    @abstractmethod
+    async def get_user(self, user_id: UUID) -> UsersReplicaTasks | None:
+        """Get a user replica by ID."""
+        ...
+
+    @abstractmethod
+    async def get_many(self, user_ids: list[UUID]) -> list[UsersReplicaTasks]:
+        """Get the user replicas matching the given IDs."""
         ...
