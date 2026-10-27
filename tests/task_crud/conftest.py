@@ -15,9 +15,8 @@ from src.core.resources.enums import RoleEnum
 from src.core.schemas.token_claims import AccessTokenClaims
 from src.core.services.idempotency import IdempotencyAbstractService
 from src.core.services.uow import UowAbstract
-from src.modules.auth.models import Company, User
-from src.modules.auth.models.members import Members
 from src.modules.tasks.models.task import Task
+from src.modules.tasks.models.users_replica import UsersReplicaTasks
 from src.modules.tasks.resources.enums import TaskStatusEnum
 from src.modules.tasks.schemas import (
     TaskCreatePayloadScheme,
@@ -290,17 +289,17 @@ async def get_async_client(
 
 
 @pytest.fixture
-async def task_users(test_db: AsyncSession) -> dict[UUID, User]:
-    """Create companies and task participants in the test database.
+async def task_users(test_db: AsyncSession) -> dict[UUID, UsersReplicaTasks]:
+    """Create task participants in the test replica.
 
     Args:
         test_db: Database session used by the test.
 
     Returns:
-        dict[UUID, User]: Task participants indexed by their IDs.
+        dict[UUID, UsersReplicaTasks]: Task participants indexed by their IDs.
     """
-    company = Company(id=constants.COMPANY_ID, name="Task test company")
-    other_company = Company(id=constants.DIFFERRNT_COMPANY_ID, name="Other task test company")
+    connection = await test_db.connection()
+    await connection.run_sync(UsersReplicaTasks.__table__.create, checkfirst=True)
     user_ids = {
         constants.CURRENT_USER_ID,
         constants.RESPONSIBLE_ID,
@@ -311,18 +310,16 @@ async def task_users(test_db: AsyncSession) -> dict[UUID, User]:
         *constants.UPDATED_EXECUTOR_IDS,
     }
     users = {
-        user_id: User(
+        user_id: UsersReplicaTasks(
             id=user_id,
-            first_name="Test",
-            last_name="User",
-            membership=Members(
-                company=company,
-                role=RoleEnum.ADMIN if user_id == constants.CURRENT_USER_ID else RoleEnum.EMPLOYEE,
-            ),
+            full_name="Test User",
+            company_id=constants.COMPANY_ID,
+            is_active=True,
+            last_event_at=datetime.datetime.now(datetime.UTC),
         )
         for user_id in user_ids
     }
-    test_db.add_all([company, other_company, *users.values()])
+    test_db.add_all(users.values())
     await test_db.commit()
     return users
 
@@ -331,7 +328,7 @@ async def task_users(test_db: AsyncSession) -> dict[UUID, User]:
 async def task_user_state(
     request: pytest.FixtureRequest,
     test_db: AsyncSession,
-    task_users: dict[UUID, User],
+    task_users: dict[UUID, UsersReplicaTasks],
 ) -> None:
     """Prepare valid, missing or foreign company task participants.
 
@@ -345,7 +342,7 @@ async def task_user_state(
         if request.param == "not_found":
             await test_db.delete(user)
         elif request.param == "different_company":
-            user.membership.company_id = constants.DIFFERRNT_COMPANY_ID
+            user.company_id = constants.DIFFERRNT_COMPANY_ID
     await test_db.commit()
 
 
@@ -353,7 +350,7 @@ async def task_user_state(
 async def task_state(
     request: pytest.FixtureRequest,
     test_db: AsyncSession,
-    task_users: dict[UUID, User],
+    task_users: dict[UUID, UsersReplicaTasks],
     task_creation_payload: TaskCreatePayloadScheme,
 ) -> UUID:
     """Prepare an existing, missing or foreign company task.

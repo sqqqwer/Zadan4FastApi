@@ -17,10 +17,10 @@ from src.core.models.idempotency import Idempotency
 from src.core.repositories.idempotency import IdempotencySqlAlchemyRepository
 from src.core.schemas.idempotency import IdempotencyCreateRepositoryScheme
 from src.core.schemas.token_claims import AccessTokenClaims
-from src.modules.org.dependencies.user_directory import get_local_user_directory as org_get_local_user_directory
+from src.modules.org.dependencies.user_directory import get_org_replica_user_directory
 from src.modules.org.models.position import Position
 from src.modules.org.schemas import PositionAssignUserScheme, PositionCreateScheme, StructCreateScheme
-from src.modules.tasks.dependencies.user_directory import get_local_user_directory as tasks_get_local_user_directory
+from src.modules.tasks.dependencies.user_directory import get_tasks_replica_user_directory
 from src.modules.tasks.models.task import Task
 from src.modules.tasks.schemas import TaskCreatePayloadScheme
 from tests.stubs import StubOrgUserDirectory, StubTasksUserDirectory
@@ -73,7 +73,7 @@ def stub_tasks_user_directory(
         company_id=UUID(COMPANY_ID)
     )
 
-    dependency: Callable[..., Any] = tasks_get_local_user_directory
+    dependency: Callable[..., Any] = get_tasks_replica_user_directory
     monkeypatch.setitem(
         app.dependency_overrides,
         dependency,
@@ -99,7 +99,7 @@ def stub_org_user_directory(
         company_id=UUID(COMPANY_ID)
     )
 
-    dependency: Callable[..., Any] = org_get_local_user_directory
+    dependency: Callable[..., Any] = get_org_replica_user_directory
     monkeypatch.setitem(
         app.dependency_overrides,
         dependency,

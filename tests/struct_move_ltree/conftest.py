@@ -11,7 +11,7 @@ from src.core.dependencies.jwt import get_current_claims
 from src.core.main import app
 from src.core.schemas.token_claims import AccessTokenClaims
 from src.core.services.idempotency import IdempotencyAbstractService
-from src.modules.org.dependencies.user_directory import get_local_user_directory as org_get_local_user_directory
+from src.modules.org.dependencies.user_directory import get_org_replica_user_directory
 from src.modules.org.schemas import StructCreateScheme
 from tests.stubs import StubOrgUserDirectory
 
@@ -82,7 +82,7 @@ def stub_org_user_directory(
         company_id=UUID(COMPANY_ID)
     )
 
-    dependency: Callable[..., Any] = org_get_local_user_directory
+    dependency: Callable[..., Any] = get_org_replica_user_directory
     monkeypatch.setitem(
         app.dependency_overrides,
         dependency,
