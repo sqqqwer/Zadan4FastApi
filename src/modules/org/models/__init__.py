@@ -5,6 +5,7 @@ from .position import Position
 from .struct_adm import StructAdm
 from .struct_adm_positions import StructAdmPositions
 from .users_positions import UsersPositions
+from .users_replica import UsersReplicaOrg
 
 __all__ = [
     "InboxMessagesOrg",
@@ -14,6 +15,7 @@ __all__ = [
     "StructAdm",
     "StructAdmPositions",
     "UsersPositions",
+    "UsersReplicaOrg",
 ]
 
 metadata = OrgBaseModel.metadata
