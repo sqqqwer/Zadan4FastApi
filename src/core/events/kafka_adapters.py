@@ -74,7 +74,7 @@ class KafkaEventConsumer:
                 async with session_scope() as session:
                     inbox = self.inbox_factory(session)
                     if await inbox.try_register(consumer_name=self.consumer_name, event_id=envelope.event_id):
-                        await self.bus.dispatch(envelope)
+                        await self.bus.dispatch(envelope, session)
 
                 partition = TopicPartition(message.topic, message.partition)
                 await self.consumer.commit({partition: message.offset + 1})

@@ -283,6 +283,8 @@ class RegistrationService:
                 "user_id": user.id,
                 "company_id": company.id,
                 "company_name": company.name,
+                "full_name": f"{user.first_name or ''} {user.last_name or ''}".strip(),
+                "is_active": True,
             },
         )
         await self.outbox_repository.add(
@@ -380,6 +382,8 @@ class RegistrationService:
                 "company_id": company.id,
                 "company_name": company.name,
                 "user_role": membership.role,
+                "full_name": f"{user.first_name or ''} {user.last_name or ''}".strip(),
+                "is_active": True,
             },
         )
         await self.outbox_repository.add(
@@ -470,7 +474,13 @@ class RegistrationService:
             correlation_id=UUID(correlation_id_var.get()),
             causation_id=None,
             producer=EVENT_PRODUCER,
-            payload={"user_id": user.id, "company_id": user.membership.company_id, "user_role": user.membership.role},
+            payload={
+                "user_id": user.id,
+                "company_id": user.membership.company_id,
+                "user_role": user.membership.role,
+                "full_name": f"{user.first_name or ''} {user.last_name or ''}".strip(),
+                "is_active": True,
+            },
         )
         await self.outbox_repository.add(
             envelope=envelope,
@@ -586,6 +596,12 @@ class RegistrationService:
             )
         )
 
+        user = await self.user_repository.get_user_by_id_with_membership(user_id)
+        if user is None:
+            raise UserNotFound()
+        if user.membership is None:
+            raise UserNotHaveMembership()
+
         envelope = EventEnvelope(
             event_id=uuid4(),
             event_type=EventType.EMPLOYEE_EMAIL_CHANGED,
@@ -599,6 +615,9 @@ class RegistrationService:
                 "user_id": user_id,
                 "account_id": account.id,
                 "new_email": reassigned_account.email,
+                "company_id": user.membership.company_id,
+                "full_name": f"{user.first_name or ''} {user.last_name or ''}".strip(),
+                "is_active": True,
             },
         )
         await self.outbox_repository.add(
