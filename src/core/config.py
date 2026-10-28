@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     idempotency_hmac_secret: SecretStr
 
     kafka_bootstrap_servers: str
+
+    auth_base_url: str = "http://127.0.0.1:8000"
+    auth_users_lookup_path: str = "/auth/api/v1/users/lookup"
+    auth_http_timeout: float = Field(default=2.0, gt=0)
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
