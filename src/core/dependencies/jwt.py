@@ -10,6 +10,7 @@ from src.core.schemas.token_claims import AccessTokenClaims
 from src.core.services.jwt_decoder import JWTDecoderService
 
 bearer_scheme = HTTPBearer()
+BearerCredentialsDependency = Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)]
 JwtSettingsDependency = Annotated[Settings, Depends(get_settings)]
 
 
@@ -35,7 +36,7 @@ JWTDecoderServiceDependency = Annotated[JWTDecoderService, Depends(get_jwt_decod
 
 def get_current_claims(
     jwt_decoder: JWTDecoderServiceDependency,
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
+    credentials: BearerCredentialsDependency,
 ) -> AccessTokenClaims:
     """Get current user claims from the bearer token.
 
