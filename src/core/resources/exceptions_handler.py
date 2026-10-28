@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from src.core.resources.exceptions import (
     AuthenticationError,
     AuthorizationError,
+    AuthUnavailableError,
     ConflictError,
     DomainValidationError,
     NotFoundError,
@@ -63,6 +64,7 @@ async def _internal_error_handler(
 exception_handlers: dict[int | type[Exception], ExceptionHandler] = {
     AuthenticationError: _create_error_handler(HTTPStatus.UNAUTHORIZED),
     AuthorizationError: _create_error_handler(HTTPStatus.FORBIDDEN),
+    AuthUnavailableError: _create_error_handler(HTTPStatus.SERVICE_UNAVAILABLE),
     ConflictError: _create_error_handler(HTTPStatus.CONFLICT),
     NotFoundError: _create_error_handler(HTTPStatus.NOT_FOUND),
     DomainValidationError: _create_error_handler(HTTPStatus.BAD_REQUEST),

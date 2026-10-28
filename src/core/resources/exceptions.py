@@ -41,3 +41,9 @@ class IdempotencyDifferentRequestError(ConflictError):
     """The idempotency key was already used with different request data."""
 
     _message: str = "This idempotency key has already been used with different request data."
+
+
+class AuthUnavailableError(AppError):
+    """The auth service could not provide user data."""
+
+    _message: str = "User verification is temporarily unavailable. Please retry later."

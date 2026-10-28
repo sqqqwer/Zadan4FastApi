@@ -4,7 +4,9 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from functools import partial
 
 from fastapi import FastAPI
+from httpx import AsyncClient
 
+from src.core.config import get_settings
 from src.core.events.bus import KafkaEventsBus
 from src.core.events.kafka_adapters import KafkaEventConsumer, KafkaEventProducer
 from src.core.logging.config import setup_logging
@@ -72,6 +74,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     ]
 
     async with AsyncExitStack() as stack:
+        settings = get_settings()
+        app.state.auth_http_client = await stack.enter_async_context(
+            AsyncClient(base_url=settings.auth_base_url, timeout=settings.auth_http_timeout)
+        )
         await stack.enter_async_context(producer.producer)
         for consumer in consumers:
             await stack.enter_async_context(consumer.consumer)
