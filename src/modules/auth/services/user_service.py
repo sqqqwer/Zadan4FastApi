@@ -6,7 +6,7 @@ from src.core.services.uow import UowAbstract
 
 from ..repositories import CompanyAbstractRepository, UserAbstractRepository
 from ..resources.exceptions import CompanyNotFound, UserNotFound, UserNotHaveMembership
-from ..schemas import UserResponse, UserScheme
+from ..schemas import UserLookupResponse, UserResponse, UserScheme
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,28 @@ class UserService:
         )
         logger.info(f"User retrieved: id={response.id}.")
         return response
+
+    async def lookup_users(self, user_ids: list[UUID], current_company_id: UUID) -> list[UserLookupResponse]:
+        """Get minimal data for requested users in the current company.
+
+        Args:
+            user_ids: User IDs requested by another service.
+            current_company_id: Company ID from the verified access token.
+
+        Returns:
+            list[UserLookupResponse]: Found users belonging to the current company.
+        """
+        users = await self.user_repository.get_users_by_id_list(user_ids)
+        return [
+            UserLookupResponse(
+                user_id=user.id,
+                full_name=f"{user.first_name or ''} {user.last_name or ''}".strip(),
+                company_id=user.membership.company_id,
+                is_active=True,
+            )
+            for user in users
+            if user.membership is not None and user.membership.company_id == current_company_id
+        ]
 
     async def update_user(self, user_id: UUID, payload: UserScheme) -> UserResponse:
         """Update the user.

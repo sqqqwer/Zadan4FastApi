@@ -12,7 +12,7 @@ from .registration import (
     UserEmployeeRegistrationResponse,
     UserRegistration,
 )
-from .user import UserResponse, UserScheme
+from .user import UserLookupPayload, UserLookupResponse, UserResponse, UserScheme
 
 __all__ = (
     "AccountEmail",
@@ -33,6 +33,8 @@ __all__ = (
     "UserAdminAndCompanyRegistrationResponse",
     "UserEmployeeRegistration",
     "UserEmployeeRegistrationResponse",
+    "UserLookupPayload",
+    "UserLookupResponse",
     "UserRegistration",
     "UserResponse",
     "UserScheme",

@@ -20,6 +20,8 @@ from ...schemas import (
     UserAdminAndCompanyRegistrationResponse,
     UserEmployeeRegistration,
     UserEmployeeRegistrationResponse,
+    UserLookupPayload,
+    UserLookupResponse,
     UserRegistration,
     UserResponse,
     UserScheme,
@@ -258,6 +260,23 @@ async def get_user_me(claims: AccessTokenClaimsDependency, service: UserServiceD
         UserResponse: User response data.
     """
     return await service.get_user(user_id=claims.sub, current_company_id=claims.company_id)
+
+
+@router.post("/users/lookup")
+async def lookup_users(
+    payload: UserLookupPayload, claims: AccessTokenClaimsDependency, service: UserServiceDependency
+) -> list[UserLookupResponse]:
+    """Get minimal user data for directory fallbacks.
+
+    Args:
+        payload: User IDs to look up.
+        claims: Verified access token claims of the current user.
+        service: User service.
+
+    Returns:
+        list[UserLookupResponse]: Found users from the current user's company.
+    """
+    return await service.lookup_users(user_ids=payload.user_ids, current_company_id=claims.company_id)
 
 
 @router.get("/users/{user_id}")
