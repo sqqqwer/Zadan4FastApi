@@ -15,6 +15,7 @@ from src.core.resources.enums import RoleEnum
 from src.core.schemas.token_claims import AccessTokenClaims
 from src.core.services.idempotency import IdempotencyAbstractService
 from src.core.services.uow import UowAbstract
+from src.modules.tasks.dependencies.user_directory import get_auth_http_user_directory
 from src.modules.tasks.models.task import Task
 from src.modules.tasks.models.users_replica import UsersReplicaTasks
 from src.modules.tasks.resources.enums import TaskStatusEnum
@@ -270,12 +271,14 @@ def stub_claims(monkeypatch: pytest.MonkeyPatch) -> AccessTokenClaims:
 async def get_async_client(
     test_db: AsyncSession,
     stub_claims: AccessTokenClaims,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[AsyncClient]:
     """Get an async HTTP client connected to the test database.
 
     Args:
         test_db: Database session used by the test.
         stub_claims: Access token claims of the test admin.
+        monkeypatch: Pytest helper for temporary dependency overrides.
 
     Yields:
         AsyncClient: HTTP client for sending requests to the application.
@@ -285,6 +288,10 @@ async def get_async_client(
         transport=transport,
         base_url="https://test",
     ) as client:
+        fallback = AsyncMock()
+        fallback.get_many.return_value = {}
+        dependency: Callable[..., Any] = get_auth_http_user_directory
+        monkeypatch.setitem(app.dependency_overrides, dependency, lambda: fallback)
         yield client
 
 
@@ -298,8 +305,6 @@ async def task_users(test_db: AsyncSession) -> dict[UUID, UsersReplicaTasks]:
     Returns:
         dict[UUID, UsersReplicaTasks]: Task participants indexed by their IDs.
     """
-    connection = await test_db.connection()
-    await connection.run_sync(UsersReplicaTasks.__table__.create, checkfirst=True)
     user_ids = {
         constants.CURRENT_USER_ID,
         constants.RESPONSIBLE_ID,
