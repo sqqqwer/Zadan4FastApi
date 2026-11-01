@@ -2,9 +2,9 @@ from uuid import UUID
 
 from fastapi import status
 from httpx import AsyncClient
-from src.core.schemas.token_claims import AccessTokenClaims
-from src.modules.org.schemas import StructCreateScheme
 
+from org.schemas import StructCreateScheme
+from shared.jwt.claims_scheme import AccessTokenClaims
 from tests.stubs import StubOrgUserDirectory
 
 from .constants import STRUCT_NAME

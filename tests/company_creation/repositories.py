@@ -3,22 +3,21 @@ from typing import override
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr
-from src.core.resources.enums import RoleEnum
-from src.modules.auth.models.account import Account
-from src.modules.auth.models.company import Company
-from src.modules.auth.models.invite import Invite
-from src.modules.auth.models.members import Members
-from src.modules.auth.models.refresh_session import RefreshSession
-from src.modules.auth.models.secrets import Secrets
-from src.modules.auth.models.user import User
-from src.modules.auth.repositories.abstracts import (
+
+from auth.models.account import Account
+from auth.models.company import Company
+from auth.models.invite import Invite
+from auth.models.members import Members
+from auth.models.refresh_session import RefreshSession
+from auth.models.secrets import Secrets
+from auth.models.user import User
+from auth.repositories.abstracts import (
     AccountAbstractRepository,
-    BaseRepository,
     CompanyAbstractRepository,
     RefreshSessionAbstractRepository,
     UserAbstractRepository,
 )
-from src.modules.auth.schemas import (
+from auth.schemas import (
     AccountEmail,
     CompanyName,
     InviteCreation,
@@ -28,6 +27,7 @@ from src.modules.auth.schemas import (
     RefreshSessionUpdate,
     UserScheme,
 )
+from shared.resources.enums import RoleEnum
 
 
 @dataclass
@@ -43,7 +43,7 @@ class FakeDatabase:
     users: dict[UUID, User] = field(default_factory=dict)
 
 
-class BaseMockRepository(BaseRepository):
+class BaseMockRepository:
     """Base repository using the fake database."""
 
     def __init__(self, db: FakeDatabase):

@@ -6,10 +6,11 @@ from fastapi import status
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.modules.auth.models import Company, Invite, RegistrationSession, Secrets, User
-from src.modules.auth.schemas import CompanySignUpEmailConfirmation, UserAdminAndCompanyRegistration
-from src.modules.auth.services.constants import REGISTRATION_SESSION_ALIAS
-from src.modules.auth.services.password_service import PasswordService
+
+from auth.models import Company, Invite, RegistrationSession, Secrets, User
+from auth.schemas import CompanySignUpEmailConfirmation, UserAdminAndCompanyRegistration
+from auth.services.constants import REGISTRATION_SESSION_ALIAS
+from auth.services.password_service import PasswordService
 
 from .constants import INVITE_TOKEN, WRONG_ADMIN_EMAIL
 

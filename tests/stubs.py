@@ -1,7 +1,7 @@
 from uuid import UUID
 
-from src.modules.org.public.dto import UserRef as OrgUserRef
-from src.modules.tasks.public.dto import UserRef as TasksUserRef
+from org.public.dto import UserRef as OrgUserRef
+from tasks.public.dto import UserRef as TasksUserRef
 
 
 class StubTasksUserDirectory:

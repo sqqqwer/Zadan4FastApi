@@ -6,13 +6,14 @@ from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from src.core.main import app
-from src.core.models.idempotency import Idempotency
-from src.core.repositories.idempotency import IdempotencySqlAlchemyRepository
-from src.core.resources.exceptions import IdempotencyDifferentRequestError
-from src.core.schemas.token_claims import AccessTokenClaims
-from src.modules.tasks.models.task import Task
-from src.modules.tasks.schemas import TaskCreatePayloadScheme, TaskResponseScheme
+
+from shared.idempotency.repository import IdempotencySqlAlchemyRepository
+from shared.jwt.claims_scheme import AccessTokenClaims
+from shared.resources.exceptions import IdempotencyDifferentRequestError
+from tasks.main import app
+from tasks.models.idempotency import IdempotencyTasks as Idempotency
+from tasks.models.task import Task
+from tasks.schemas import TaskCreatePayloadScheme, TaskResponseScheme
 
 from .constants import ENDPOINT, REQUEST_COUNT, TIMEOUT_SECONDS
 
@@ -76,7 +77,7 @@ async def test_concurrent_task_creation(  # noqa: PLR0913, PLR0917
     transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="https://test") as client:
         async with asyncio.timeout(TIMEOUT_SECONDS), asyncio.TaskGroup() as group, concurrent_db() as blocker:
-            repository = IdempotencySqlAlchemyRepository(blocker)
+            repository = IdempotencySqlAlchemyRepository(blocker, model=Idempotency)
             for request_key in {key, other_key}:
                 await repository.lock_by_scope_key(operation_scope, request_key)
             blocker_pid = await blocker.scalar(select(func.pg_backend_pid()))

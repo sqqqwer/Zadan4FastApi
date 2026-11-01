@@ -5,9 +5,10 @@ from fastapi import status
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.modules.tasks.models.task import Task
-from src.modules.tasks.resources.enums import TaskStatusEnum
-from src.modules.tasks.schemas import TaskCreatePayloadScheme, TaskResponseScheme, TaskStatusScheme
+
+from tasks.models.task import Task
+from tasks.resources.enums import TaskStatusEnum
+from tasks.schemas import TaskCreatePayloadScheme, TaskResponseScheme, TaskStatusScheme
 
 from . import constants
 

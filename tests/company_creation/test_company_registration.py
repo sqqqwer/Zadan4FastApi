@@ -2,10 +2,10 @@ import datetime
 from unittest.mock import AsyncMock
 
 import pytest
-from src.core.resources.enums import RoleEnum
-from src.modules.auth.models import Account, Company, Invite, Secrets
-from src.modules.auth.resources.enums import InvitePurposeEnum
-from src.modules.auth.resources.exceptions import (
+
+from auth.models import Account, Company, Invite, Secrets
+from auth.resources.enums import InvitePurposeEnum
+from auth.resources.exceptions import (
     AccountNotFound,
     AccountWithEmailAlreadyExists,
     CompanyWithThisNameAlreadyExists,
@@ -16,10 +16,10 @@ from src.modules.auth.resources.exceptions import (
     InviteWrongPurpose,
     UserWithThisAccountAlreadyExists,
 )
-from src.modules.auth.schemas import CompanySignUpEmailConfirmation, UserAdminAndCompanyRegistration
-from src.modules.auth.services.password_service import PasswordService
-from src.modules.auth.services.registration_service import RegistrationService
-
+from auth.schemas import CompanySignUpEmailConfirmation, UserAdminAndCompanyRegistration
+from auth.services.password_service import PasswordService
+from auth.services.registration_service import RegistrationService
+from shared.resources.enums import RoleEnum
 from tests.company_creation.repositories import FakeDatabase
 
 from .constants import (

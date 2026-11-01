@@ -4,8 +4,8 @@ import pytest
 from fastapi import status
 from httpx import AsyncClient
 from pydantic import BaseModel
-from src.core.schemas.token_claims import AccessTokenClaims
 
+from shared.jwt.claims_scheme import AccessTokenClaims
 from tests.stubs import StubOrgUserDirectory, StubTasksUserDirectory
 
 

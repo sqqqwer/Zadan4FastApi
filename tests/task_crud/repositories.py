@@ -2,9 +2,9 @@ from dataclasses import dataclass, field
 from typing import override
 from uuid import UUID, uuid4
 
-from src.modules.tasks.models.task import Task
-from src.modules.tasks.repositories.abstracts import TaskAbstractRepository, TasksBaseRepository
-from src.modules.tasks.schemas import TaskCreateRepositoryScheme, TaskStatusScheme, TaskUpdateRepositoryScheme
+from tasks.models.task import Task
+from tasks.repositories.abstracts import TaskAbstractRepository, TasksBaseRepository
+from tasks.schemas import TaskCreateRepositoryScheme, TaskStatusScheme, TaskUpdateRepositoryScheme
 
 
 @dataclass

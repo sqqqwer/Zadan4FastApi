@@ -2,21 +2,21 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
-from src.modules.tasks.models.task import Task
-from src.modules.tasks.resources.enums import TaskStatusEnum
-from src.modules.tasks.resources.exceptions import (
+
+from tasks.models.task import Task
+from tasks.resources.enums import TaskStatusEnum
+from tasks.resources.exceptions import (
     InvalidTaskStatusTransition,
     TaskNewStatusMatchesCurrentStatus,
     TaskNotFound,
     UserFromDifferentCompany,
     UserNotFound,
 )
-from src.modules.tasks.schemas import (
+from tasks.schemas import (
     TaskCreatePayloadScheme,
     TaskStatusScheme,
 )
-from src.modules.tasks.services.task_service import TaskService
-
+from tasks.services.task_service import TaskService
 from tests.stubs import StubTasksUserDirectory
 
 from . import constants

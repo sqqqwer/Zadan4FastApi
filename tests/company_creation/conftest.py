@@ -10,13 +10,11 @@ from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.core.main import app
-from src.core.request_context import correlation_id_var
-from src.core.services.idempotency import IdempotencyAbstractService
-from src.core.services.uow import UowAbstract
-from src.modules.auth.models import Account, Company, Invite, Secrets, User
-from src.modules.auth.resources.enums import InvitePurposeEnum
-from src.modules.auth.schemas import (
+
+from auth.main import app
+from auth.models import Account, Company, Invite, Secrets, User
+from auth.resources.enums import InvitePurposeEnum
+from auth.schemas import (
     AccountEmail,
     CompanyName,
     CompanySignUpEmailConfirmation,
@@ -24,14 +22,16 @@ from src.modules.auth.schemas import (
     UserAdminAndCompanyRegistration,
     UserScheme,
 )
-from src.modules.auth.services.auth_service import AuthService
-from src.modules.auth.services.jwt_service import AbstractJWTEncoderService
-from src.modules.auth.services.password_service import PasswordService
-from src.modules.auth.services.registration_service import RegistrationService
-from src.modules.auth.services.registration_session_service import RegistrationSessionService
-from src.modules.auth.services.user_service import UserService
-from src.shared.outbox.repository import OutboxAbstractRepository
-
+from auth.services.auth_service import AuthService
+from auth.services.jwt_service import AbstractJWTEncoderService
+from auth.services.password_service import PasswordService
+from auth.services.registration_service import RegistrationService
+from auth.services.registration_session_service import RegistrationSessionService
+from auth.services.user_service import UserService
+from shared.correlation.request_context import correlation_id_var
+from shared.idempotency.service import IdempotencyAbstractService
+from shared.outbox.repository import OutboxAbstractRepository
+from shared.uow.service import UowAbstract
 from tests.company_creation.repositories import (
     AccountMockRepository,
     CompanyMockRepository,
@@ -52,6 +52,12 @@ from .constants import (
     WRONG_ADMIN_EMAIL,
     WRONG_INVITE_TOKEN_HASH,
 )
+
+
+@pytest.fixture
+def service_name() -> str:
+    """Use the auth database for registration tests."""
+    return "auth"
 
 
 @pytest.fixture

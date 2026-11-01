@@ -5,18 +5,24 @@ from uuid import UUID
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from src.core.dependencies.idempotency import get_idempotency_service
-from src.core.dependencies.jwt import get_current_claims
-from src.core.main import app
-from src.core.schemas.token_claims import AccessTokenClaims
-from src.core.services.idempotency import IdempotencyAbstractService
-from src.modules.org.dependencies.user_directory import get_org_replica_user_directory
-from src.modules.org.schemas import StructCreateScheme
 
+from org.dependencies.idempotency import get_idempotency_service
+from org.dependencies.jwt import get_current_claims
+from org.dependencies.user_directory import get_org_replica_user_directory
+from org.main import app
+from org.schemas import StructCreateScheme
+from shared.idempotency.service import IdempotencyAbstractService
+from shared.jwt.claims_scheme import AccessTokenClaims
 from tests.stubs import StubOrgUserDirectory
 
 from .constants import COMPANY_ID, STRUCT_NAME
 from .stubs import stub_get_current_claims
+
+
+@pytest.fixture
+def service_name() -> str:
+    """Use the org database for structure tests."""
+    return "org"
 
 
 @pytest.fixture(autouse=True)

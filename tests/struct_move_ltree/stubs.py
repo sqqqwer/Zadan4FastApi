@@ -1,8 +1,8 @@
 import datetime
 from uuid import UUID, uuid4
 
-from src.core.resources.enums import RoleEnum
-from src.core.schemas.token_claims import AccessTokenClaims
+from shared.jwt.claims_scheme import AccessTokenClaims
+from shared.resources.enums import RoleEnum
 
 from .constants import COMPANY_ID
 

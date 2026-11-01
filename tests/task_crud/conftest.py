@@ -7,28 +7,34 @@ from uuid import UUID, uuid4
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.core.dependencies.jwt import get_current_claims
-from src.core.main import app
-from src.core.request_context import correlation_id_var
-from src.core.resources.enums import RoleEnum
-from src.core.schemas.token_claims import AccessTokenClaims
-from src.core.services.idempotency import IdempotencyAbstractService
-from src.core.services.uow import UowAbstract
-from src.modules.tasks.dependencies.user_directory import get_auth_http_user_directory
-from src.modules.tasks.models.task import Task
-from src.modules.tasks.models.users_replica import UsersReplicaTasks
-from src.modules.tasks.resources.enums import TaskStatusEnum
-from src.modules.tasks.schemas import (
+
+from shared.correlation.request_context import correlation_id_var
+from shared.idempotency.service import IdempotencyAbstractService
+from shared.jwt.claims_scheme import AccessTokenClaims
+from shared.outbox.repository import OutboxAbstractRepository
+from shared.resources.enums import RoleEnum
+from shared.uow.service import UowAbstract
+from tasks.dependencies.jwt import get_current_claims
+from tasks.dependencies.user_directory import get_auth_http_user_directory
+from tasks.main import app
+from tasks.models.task import Task
+from tasks.models.users_replica import UsersReplicaTasks
+from tasks.resources.enums import TaskStatusEnum
+from tasks.schemas import (
     TaskCreatePayloadScheme,
     TaskCreateRepositoryScheme,
 )
-from src.modules.tasks.services.task_service import TaskService
-from src.shared.outbox.repository import OutboxAbstractRepository
-
+from tasks.services.task_service import TaskService
 from tests.stubs import StubTasksUserDirectory
 
 from . import constants
 from .repositories import FakeDatabase, TaskMockRepository
+
+
+@pytest.fixture
+def service_name() -> str:
+    """Use the tasks database for task tests."""
+    return "tasks"
 
 
 @pytest.fixture

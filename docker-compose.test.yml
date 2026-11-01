@@ -1,22 +1,23 @@
+name: zadan4fastapi-tests
+
+x-test-environment: &test-environment
+  POSTGRES_USER: test
+  POSTGRES_PASSWORD: test
+  POSTGRES_DB: test
+  DB_PORT: "5432"
+  FRONTEND_URL: https://test
+  JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private_key
+  JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public_key
+  IDEMPOTENCY_HMAC_SECRET: test-idempotency-secret
+  KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+
 volumes:
-  pg_test_data:
+  pg_auth_test_data:
+  pg_org_test_data:
+  pg_tasks_test_data:
 
 services:
-  migrate_test:
-      build: .
-      env_file: .env
-      environment:
-        POSTGRES_USER: test
-        POSTGRES_PASSWORD: test
-        POSTGRES_DB: test
-        DB_HOST: db_test
-        DB_PORT: 5432
-      depends_on:
-        db_test:
-          condition: service_healthy
-      command: alembic upgrade head
-      restart: "no"
-  db_test:
+  db_auth_test:
     image: postgres:17
     environment:
       POSTGRES_USER: test
@@ -25,31 +26,105 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - pg_test_data:/var/lib/postgresql/data
+      - pg_auth_test_data:/var/lib/postgresql/data
     healthcheck:
       test: "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""
       interval: 10s
       timeout: 5s
       retries: 5
+
+  db_org_test:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: test
+    ports:
+      - "5434:5432"
+    volumes:
+      - pg_org_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db_tasks_test:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: test
+    ports:
+      - "5435:5432"
+    volumes:
+      - pg_tasks_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate_auth_test:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    environment:
+      <<: *test-environment
+      DB_HOST: db_auth_test
+    depends_on:
+      db_auth_test:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  migrate_org_test:
+    build:
+      context: .
+      dockerfile: services/org/Dockerfile
+    environment:
+      <<: *test-environment
+      DB_HOST: db_org_test
+    depends_on:
+      db_org_test:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  migrate_tasks_test:
+    build:
+      context: .
+      dockerfile: services/tasks/Dockerfile
+    environment:
+      <<: *test-environment
+      DB_HOST: db_tasks_test
+    depends_on:
+      db_tasks_test:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
   tests:
     build:
       context: .
       dockerfile: Dockerfile.test
-    env_file: .env
     environment:
-      DB_HOST: db_test
-      DB_PORT: "5432"
-      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private_key
-      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public_key
+      <<: *test-environment
+      DB_HOST: db_auth_test
+      AUTH_DATABASE_URL: postgresql+asyncpg://test:test@db_auth_test:5432/test
+      ORG_DATABASE_URL: postgresql+asyncpg://test:test@db_org_test:5432/test
+      TASKS_DATABASE_URL: postgresql+asyncpg://test:test@db_tasks_test:5432/test
     secrets:
       - jwt_private_key
       - jwt_public_key
     volumes:
       - ./keys:/app/keys:ro
     depends_on:
-      db_test:
-        condition: service_healthy
-      migrate_test:
+      migrate_auth_test:
+        condition: service_completed_successfully
+      migrate_org_test:
+        condition: service_completed_successfully
+      migrate_tasks_test:
         condition: service_completed_successfully
     restart: "no"
 

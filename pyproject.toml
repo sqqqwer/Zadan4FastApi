@@ -44,6 +44,7 @@ ini_options.asyncio_mode = "auto"
 ini_options.log_cli = false
 
 [tool.mypy]
+mypy_path = ["services/auth", "services/org", "services/tasks", "shared"]
 plugins = [
     
 ]
