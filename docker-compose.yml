@@ -1,26 +1,67 @@
+x-auth-service: &auth-service
+  image: tasks-platform-auth:local
+  pull_policy: build
+  build:
+    context: .
+    dockerfile: services/auth/Dockerfile
+  env_file: ./services/auth/.env
+
+x-org-service: &org-service
+  image: tasks-platform-org:local
+  pull_policy: build
+  build:
+    context: .
+    dockerfile: services/org/Dockerfile
+  env_file: ./services/org/.env
+
+x-tasks-service: &tasks-service
+  image: tasks-platform-tasks:local
+  pull_policy: build
+  build:
+    context: .
+    dockerfile: services/tasks/Dockerfile
+  env_file: ./services/tasks/.env
+
 volumes:
-  pg_data:
+  pg_auth_data:
+  pg_org_data:
+  pg_tasks_data:
   kafka_data:
 
 services:
-  migrate:
-      build: .
-      env_file: .env
-      depends_on:
-        db:
-          condition: service_healthy
-      command: alembic upgrade head
-      restart: "no"
-  db:
+  db_auth:
     image: postgres:17
-    env_file: .env
+    env_file: ./services/auth/.env
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - pg_auth_data:/var/lib/postgresql/data
     healthcheck:
-      test: "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  db_org:
+    image: postgres:17
+    env_file: ./services/org/.env
+    volumes:
+      - pg_org_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db_tasks:
+    image: postgres:17
+    env_file: ./services/tasks/.env
+    volumes:
+      - pg_tasks_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   kafka:
     image: apache/kafka:3.9.1
     environment:
@@ -43,24 +84,114 @@ services:
       retries: 5
       start_period: 30s
 
-  backend:
-    build: .
-    env_file: .env
+  migrate_auth:
+    <<: *auth-service
+    depends_on:
+      db_auth:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  auth:
+    <<: *auth-service
     ports:
       - "8000:8000"
-    depends_on:
-        db:
-          condition: service_healthy
-        migrate:
-          condition: service_completed_successfully
-        kafka:
-          condition: service_healthy
-    environment:
-      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private_key
-      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public_key
+    depends_on: &auth-dependencies
+      db_auth:
+        condition: service_healthy
+      migrate_auth:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
     secrets:
       - jwt_private_key
       - jwt_public_key
+
+  auth_publisher:
+    <<: *auth-service
+    depends_on: *auth-dependencies
+    command: ["python", "-m", "auth.main_publisher"]
+    restart: unless-stopped
+    stop_signal: SIGINT
+
+  auth_consumer:
+    <<: *auth-service
+    depends_on: *auth-dependencies
+    command: ["python", "-m", "auth.main_consumer"]
+    restart: unless-stopped
+    stop_signal: SIGINT
+
+  migrate_org:
+    <<: *org-service
+    depends_on:
+      db_org:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  org:
+    <<: *org-service
+    ports:
+      - "8001:8000"
+    depends_on: &org-dependencies
+      db_org:
+        condition: service_healthy
+      migrate_org:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    secrets:
+      - jwt_public_key
+
+  org_publisher:
+    <<: *org-service
+    depends_on: *org-dependencies
+    command: ["python", "-m", "org.main_publisher"]
+    restart: unless-stopped
+    stop_signal: SIGINT
+
+  org_consumer:
+    <<: *org-service
+    depends_on: *org-dependencies
+    command: ["python", "-m", "org.main_consumer"]
+    restart: unless-stopped
+    stop_signal: SIGINT
+
+  migrate_tasks:
+    <<: *tasks-service
+    depends_on:
+      db_tasks:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  tasks:
+    <<: *tasks-service
+    ports:
+      - "8002:8000"
+    depends_on: &tasks-dependencies
+      db_tasks:
+        condition: service_healthy
+      migrate_tasks:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    secrets:
+      - jwt_public_key
+
+  tasks_publisher:
+    <<: *tasks-service
+    depends_on: *tasks-dependencies
+    command: ["python", "-m", "tasks.main_publisher"]
+    restart: unless-stopped
+    stop_signal: SIGINT
+
+  tasks_consumer:
+    <<: *tasks-service
+    depends_on: *tasks-dependencies
+    command: ["python", "-m", "tasks.main_consumer"]
+    restart: unless-stopped
+    stop_signal: SIGINT
 
 secrets:
   jwt_private_key:

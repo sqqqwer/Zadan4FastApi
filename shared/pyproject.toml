@@ -1,0 +1,20 @@
+[project]
+name = "tasks-platform-shared"
+version = "0.1.0"
+description = "Common infrastructure for auth, org and tasks"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.141.1,<0.142.0",
+    "pydantic>=2.13.4,<3.0.0",
+    "sqlalchemy[asyncio]==2.0.52",
+    "pyjwt[crypto]>=2.13.0,<3.0.0",
+    "aiokafka>=0.14.0,<0.15.0",
+    "httpx>=0.28.1,<0.29.0",
+]
+
+[tool.poetry]
+packages = [{ include = "shared" }]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

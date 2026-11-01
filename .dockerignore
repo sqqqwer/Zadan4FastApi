@@ -24,3 +24,5 @@ venv
 .vscode
 private.pem
 public.pem
+.env
+**/.env
