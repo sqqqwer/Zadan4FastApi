@@ -1,10 +1,11 @@
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from shared.resources.enums import RoleEnum
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from shared.resources.enums import RoleEnum
 
 from .base import AuthBaseModel
 

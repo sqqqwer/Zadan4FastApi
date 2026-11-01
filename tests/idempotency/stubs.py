@@ -20,6 +20,6 @@ def stub_get_current_claims() -> AccessTokenClaims:
         iss="test",
         aud="test",
         iat=datetime.datetime.now(datetime.UTC),
-        exp=datetime.datetime.now(datetime.UTC)+datetime.timedelta(days=3),
+        exp=datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=3),
         jti=uuid4(),
     )

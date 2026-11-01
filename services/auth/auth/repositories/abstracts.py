@@ -3,6 +3,7 @@ from datetime import datetime
 from uuid import UUID
 
 from pydantic import EmailStr
+
 from shared.resources.enums import RoleEnum
 
 from ..models.account import Account

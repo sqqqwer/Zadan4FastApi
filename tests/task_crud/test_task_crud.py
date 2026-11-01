@@ -2,7 +2,6 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
-
 from src.modules.tasks.models.task import Task
 from src.modules.tasks.resources.enums import TaskStatusEnum
 from src.modules.tasks.resources.exceptions import (
@@ -17,6 +16,7 @@ from src.modules.tasks.schemas import (
     TaskStatusScheme,
 )
 from src.modules.tasks.services.task_service import TaskService
+
 from tests.stubs import StubTasksUserDirectory
 
 from . import constants
@@ -53,6 +53,7 @@ async def test_task_create(
     assert task.status == TaskStatusEnum.CREATED
     assert task.author_id == constants.CURRENT_USER_ID
 
+
 async def test_task_create_user_not_found(  # noqa: PLR0913, PLR0917
     fake_db: FakeDatabase,
     mock_uow: AsyncMock,
@@ -78,6 +79,7 @@ async def test_task_create_user_not_found(  # noqa: PLR0913, PLR0917
         )
 
     assert len(fake_db.tasks) == 0
+
 
 async def test_task_create_user_from_different_company(  # noqa: PLR0913, PLR0917
     fake_db: FakeDatabase,
@@ -106,10 +108,7 @@ async def test_task_create_user_from_different_company(  # noqa: PLR0913, PLR091
     assert len(fake_db.tasks) == 0
 
 
-async def test_task_retrieve(
-    task_service: TaskService,
-    new_task: Task
-):
+async def test_task_retrieve(task_service: TaskService, new_task: Task):
     """Check that the task response contains the saved task data.
 
     Args:
@@ -129,6 +128,7 @@ async def test_task_retrieve(
     assert response.deadline == new_task.deadline
     assert response.estimated_minutes == new_task.estimated_minutes
 
+
 async def test_task_retrieve_not_found(
     task_service: TaskService,
 ):
@@ -140,10 +140,8 @@ async def test_task_retrieve_not_found(
     with pytest.raises(TaskNotFound):
         await task_service.retrieve(id=uuid4())
 
-async def test_task_retrieve_different_company(
-    task_service: TaskService,
-    new_task_different_company: Task
-):
+
+async def test_task_retrieve_different_company(task_service: TaskService, new_task_different_company: Task):
     """Check that a task from a different company cannot be retrieved.
 
     Args:
@@ -151,9 +149,7 @@ async def test_task_retrieve_different_company(
         new_task_different_company: Task belonging to a different company.
     """
     with pytest.raises(TaskNotFound):
-        await task_service.retrieve(
-            id=new_task_different_company.id
-        )
+        await task_service.retrieve(id=new_task_different_company.id)
 
 
 async def test_task_list(
@@ -171,6 +167,7 @@ async def test_task_list(
     assert len(response) == 1
     assert response[0].id == new_task.id
 
+
 async def test_task_list_empty(
     task_service: TaskService,
 ):
@@ -183,10 +180,8 @@ async def test_task_list_empty(
 
     assert len(response) == 0
 
-async def test_task_list_different_company(
-    task_service: TaskService,
-    new_task_different_company: Task
-):
+
+async def test_task_list_different_company(task_service: TaskService, new_task_different_company: Task):
     """Check that the task list excludes tasks from a different company.
 
     Args:
@@ -214,10 +209,7 @@ async def test_task_update(
         new_task: Task created for the test.
         task_update_payload: Updated task data.
     """
-    response = await task_service.update(
-       id=new_task.id,
-       payload=task_update_payload
-    )
+    response = await task_service.update(id=new_task.id, payload=task_update_payload)
 
     mock_uow.commit.assert_awaited_once()
 
@@ -235,6 +227,7 @@ async def test_task_update(
     assert saved_task.title == constants.UPDATED_TITLE
     assert saved_task.responsible_id == constants.UPDATED_RESPONSIBLE_ID
 
+
 async def test_task_update_not_found(
     task_service: TaskService,
     task_update_payload: TaskCreatePayloadScheme,
@@ -248,12 +241,10 @@ async def test_task_update_not_found(
         mock_uow: Mock unit of work.
     """
     with pytest.raises(TaskNotFound):
-        await task_service.update(
-            id=uuid4(),
-            payload=task_update_payload
-        )
+        await task_service.update(id=uuid4(), payload=task_update_payload)
 
     mock_uow.commit.assert_not_awaited()
+
 
 async def test_task_update_user_not_found(
     task_service: TaskService,
@@ -272,12 +263,10 @@ async def test_task_update_user_not_found(
         mock_uow: Mock unit of work.
     """
     with pytest.raises(UserNotFound):
-        await task_service.update(
-            id=new_task.id,
-            payload=task_update_payload
-        )
+        await task_service.update(id=new_task.id, payload=task_update_payload)
 
     mock_uow.commit.assert_not_awaited()
+
 
 async def test_task_update_user_from_different_company(
     task_service: TaskService,
@@ -296,10 +285,7 @@ async def test_task_update_user_from_different_company(
         mock_uow: Mock unit of work.
     """
     with pytest.raises(UserFromDifferentCompany):
-        await task_service.update(
-            id=new_task.id,
-            payload=task_update_payload
-        )
+        await task_service.update(id=new_task.id, payload=task_update_payload)
 
     mock_uow.commit.assert_not_awaited()
 
@@ -337,6 +323,7 @@ async def test_task_change_status(
 
     mock_uow.commit.assert_awaited_once()
 
+
 async def test_task_change_status_not_found(
     task_service: TaskService,
     mock_uow: AsyncMock,
@@ -354,6 +341,7 @@ async def test_task_change_status_not_found(
         )
 
     mock_uow.commit.assert_not_awaited()
+
 
 async def test_task_change_status_invalid_transition(
     task_service: TaskService,
@@ -375,6 +363,7 @@ async def test_task_change_status_invalid_transition(
 
     assert new_task.status == TaskStatusEnum.CREATED
     mock_uow.commit.assert_not_awaited()
+
 
 async def test_task_change_status_matches_current(
     task_service: TaskService,
@@ -416,6 +405,7 @@ async def test_task_delete(
 
     assert new_task.id not in fake_db.tasks
     mock_uow.commit.assert_awaited_once()
+
 
 async def test_task_delete_not_found(
     task_service: TaskService,

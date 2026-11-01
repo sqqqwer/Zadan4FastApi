@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import Depends
+
 from shared.outbox.repository import OutboxAbstractRepository, OutboxSqlAlchemyRepository
 
 from ..models.outbox_messages import OutboxMessagesTasks

@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, status
+
 from shared.pagination.dependencies import PaginationDependency
 
 from ...dependencies.idempotency import IdempotencyServiceDependency

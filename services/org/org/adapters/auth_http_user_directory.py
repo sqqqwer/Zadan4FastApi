@@ -3,6 +3,7 @@ from uuid import UUID
 
 from httpx import AsyncClient, HTTPError
 from pydantic import TypeAdapter
+
 from shared.resources.exceptions import AuthenticationError, AuthorizationError, AuthUnavailableError
 
 from ..config import get_settings

@@ -6,8 +6,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-MODULES = ('auth', 'org', 'tasks')
-SRC = Path(__file__).parents[1] / 'src' / 'modules'
+MODULES = ("auth", "org", "tasks")
+SRC = Path(__file__).parents[1] / "src" / "modules"
 
 
 def _imported_names(path: Path) -> list[str]:
@@ -19,7 +19,7 @@ def _imported_names(path: Path) -> list[str]:
     Returns:
         list[str]: Fully qualified imported module and object names.
     """
-    tree = ast.parse(path.read_text(encoding='utf-8'))
+    tree = ast.parse(path.read_text(encoding="utf-8"))
     names: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -34,7 +34,7 @@ def _imported_names(path: Path) -> list[str]:
     return names
 
 
-@pytest.mark.parametrize('module', MODULES)
+@pytest.mark.parametrize("module", MODULES)
 def test_module_does_not_touch_others_internals(module: str) -> None:
     """Check that the module does not import internal parts of other modules.
 
@@ -43,13 +43,13 @@ def test_module_does_not_touch_others_internals(module: str) -> None:
     """
     foreign = [m for m in MODULES if m != module]
     violations = []
-    for path in (SRC / module).rglob('*.py'):
+    for path in (SRC / module).rglob("*.py"):
         for name in _imported_names(path):
             for other in foreign:
-                prefix = f'src.modules.{other}'
-                if name.startswith(prefix) and not name.startswith(f'{prefix}.public'):
-                    violations.append(f'{path.relative_to(SRC)}:{name}')
-    assert not violations, 'Импорт внутренностей чужого модуля:\n' + '\n'.join(violations)
+                prefix = f"src.modules.{other}"
+                if name.startswith(prefix) and not name.startswith(f"{prefix}.public"):
+                    violations.append(f"{path.relative_to(SRC)}:{name}")
+    assert not violations, "Импорт внутренностей чужого модуля:\n" + "\n".join(violations)
 
 
 async def test_no_foreign_keys_between_schemas(test_db: AsyncSession) -> None:

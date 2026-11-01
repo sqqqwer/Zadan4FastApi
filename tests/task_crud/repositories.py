@@ -13,6 +13,7 @@ class FakeDatabase:
 
     tasks: dict[UUID, Task] = field(default_factory=dict)
 
+
 class BaseMockRepository(TasksBaseRepository):
     """Base repository using the fake database."""
 
@@ -26,22 +27,17 @@ class BaseMockRepository(TasksBaseRepository):
         super().__init__(company_id=company_id)
         self.db = db
 
-class TaskMockRepository(
-    BaseMockRepository, TaskAbstractRepository
-):
+
+class TaskMockRepository(BaseMockRepository, TaskAbstractRepository):
     """Test repository for account objects."""
 
     @override
     async def list_all(self, limit: int, offset: int) -> list[Task]:
-        tasks = [
-            task
-            for task in self.db.tasks.values()
-            if task.company_id == self.company_id
-        ]
+        tasks = [task for task in self.db.tasks.values() if task.company_id == self.company_id]
 
         tasks.sort(key=lambda task: task.id)
 
-        return tasks[offset:offset + limit]
+        return tasks[offset : offset + limit]
 
     @override
     async def retrieve(self, id: UUID) -> Task | None:

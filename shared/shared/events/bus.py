@@ -57,8 +57,8 @@ class KafkaEventsBus(AbstractEventsBus):
 
     def __init__(self, kafka_bootstrap_servers: str, producer: KafkaEventProducer | None = None) -> None:
         """Initialize the event bus with an optional shared producer."""
-        self.producer = producer if producer is not None else KafkaEventProducer(
-            kafka_bootstrap_servers=kafka_bootstrap_servers
+        self.producer = (
+            producer if producer is not None else KafkaEventProducer(kafka_bootstrap_servers=kafka_bootstrap_servers)
         )
         self.event_handlers: dict[EventType, list[EventHandler]] = {}
 

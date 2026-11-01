@@ -2,9 +2,9 @@ from uuid import UUID
 
 from fastapi import status
 from httpx import AsyncClient
-
 from src.core.schemas.token_claims import AccessTokenClaims
 from src.modules.org.schemas import StructCreateScheme
+
 from tests.stubs import StubOrgUserDirectory
 
 from .constants import STRUCT_NAME
@@ -38,9 +38,7 @@ async def test_struct_create(
     assert data["path"] == UUID(data["id"]).hex
     assert data["company_id"] == str(stub_claims.company_id)
 
-    saved_response = await client.get(
-        f"/org/api/v1/structs/{data["id"]}"
-    )
+    saved_response = await client.get(f"/org/api/v1/structs/{data['id']}")
     assert saved_response.status_code == status.HTTP_200_OK, saved_response.text
     assert saved_response.json() == data
 
@@ -84,7 +82,6 @@ async def test_struct_move_to_struct(
     b_label = UUID(b_id).hex
     c_label = UUID(c_id).hex
 
-
     response_move_c_to_b = await client.post(
         f"/org/api/v1/structs/{c_id}/move",
         json={"struct_id": b_id},
@@ -96,7 +93,6 @@ async def test_struct_move_to_struct(
     )
     assert response_c.status_code == status.HTTP_200_OK, response_c.text
     assert response_c.json()["path"] == f"{b_label}.{c_label}"
-
 
     response_move_b_to_a = await client.post(
         f"/org/api/v1/structs/{b_id}/move",
@@ -118,9 +114,7 @@ async def test_struct_move_to_struct(
         assert saved_data["path"] == path
         assert saved_data["company_id"] == str(stub_claims.company_id)
 
-    response_a_tree = await client.get(
-        f"/org/api/v1/structs/{a_id}/tree"
-    )
+    response_a_tree = await client.get(f"/org/api/v1/structs/{a_id}/tree")
 
     assert response_a_tree.status_code == status.HTTP_200_OK, response_a_tree.text
 

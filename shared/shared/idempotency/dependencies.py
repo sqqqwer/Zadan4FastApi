@@ -95,11 +95,13 @@ def _get_idempotency_key(key: Annotated[UUID, Header(alias="Idempotency-Key")]) 
 
 IdempotencyKeyDependency = Annotated[UUID, Depends(_get_idempotency_key)]
 
+
 def make_idempotency_service_dependency(
     repository_dependency: Callable[..., IdempotencyAbstractRepository],
     secret_dependency: Callable[..., SecretStr],
 ):
     """Build an idempotency dependency using the service's repository and secret."""
+
     async def get_request_hash(
         request: Request,
         secret: Annotated[SecretStr, Depends(secret_dependency)],

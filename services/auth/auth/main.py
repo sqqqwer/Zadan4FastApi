@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+
 from shared.correlation.middleware import correlation_id_middleware
 from shared.logging.config import setup_logging
 from shared.resources.exceptions_handler import exception_handlers

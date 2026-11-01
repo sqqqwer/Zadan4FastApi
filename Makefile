@@ -14,18 +14,18 @@ test:				## Тесты
 	docker compose -f docker-compose.test.yml run --rm --build tests
 
 format:				## Только форматирование
-	poetry run ruff format src
+	poetry run ruff format services shared tests
 
 lint:				## Только проверка линтером с автофиксом
-	poetry run ruff check src --fix
+	poetry run ruff check services shared tests --fix
 
 ruff:				## Ruff на всё сразу: форматирование + линт с автофиксом
-	poetry run ruff format src
-	poetry run ruff check src --fix
+	poetry run ruff format services shared tests
+	poetry run ruff check services shared tests --fix
 
 check:				## Проверка без изменений (для CI): формат + линт в режиме "только проверить"
-	poetry run ruff format src --check
-	poetry run ruff check src
+	poetry run ruff format services shared tests --check
+	poetry run ruff check services shared tests
 
 clean:				## Удалить кэши
 	find . -type d \( -name '__pycache__' -o -name '.ruff_cache' -o -name '.pytest_cache' -o -name '.mypy_cache' \) -prune -exec rm -rf {} +

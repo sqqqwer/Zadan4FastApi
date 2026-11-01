@@ -4,7 +4,6 @@ from uuid import uuid4
 import pytest
 from fastapi import status
 from httpx import AsyncClient
-
 from src.modules.auth.schemas import CompanySignUpEmailConfirmation
 
 from .constants import ADMIN_EMAIL

@@ -5,7 +5,6 @@ from uuid import UUID
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-
 from src.core.dependencies.idempotency import get_idempotency_service
 from src.core.dependencies.jwt import get_current_claims
 from src.core.main import app
@@ -13,6 +12,7 @@ from src.core.schemas.token_claims import AccessTokenClaims
 from src.core.services.idempotency import IdempotencyAbstractService
 from src.modules.org.dependencies.user_directory import get_org_replica_user_directory
 from src.modules.org.schemas import StructCreateScheme
+
 from tests.stubs import StubOrgUserDirectory
 
 from .constants import COMPANY_ID, STRUCT_NAME
@@ -27,6 +27,7 @@ def enable_test_db(test_db):
         test_db: Database session used by the test.
     """
 
+
 @pytest.fixture
 async def get_async_client() -> AsyncIterator[AsyncClient]:
     """Get an async HTTP client for the test application.
@@ -36,11 +37,9 @@ async def get_async_client() -> AsyncIterator[AsyncClient]:
     """
     transport = ASGITransport(app=app)
 
-    async with AsyncClient(
-        transport=transport,
-        base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
+
 
 @pytest.fixture(autouse=True)
 def mock_idempotency(
@@ -66,10 +65,9 @@ def mock_idempotency(
 
     return service
 
+
 @pytest.fixture
-def stub_org_user_directory(
-    monkeypatch: pytest.MonkeyPatch
-) -> StubOrgUserDirectory:
+def stub_org_user_directory(monkeypatch: pytest.MonkeyPatch) -> StubOrgUserDirectory:
     """Override the org user directory with a stub.
 
     Args:
@@ -78,9 +76,7 @@ def stub_org_user_directory(
     Returns:
         StubOrgUserDirectory: Stub org user directory.
     """
-    directory = StubOrgUserDirectory(
-        company_id=UUID(COMPANY_ID)
-    )
+    directory = StubOrgUserDirectory(company_id=UUID(COMPANY_ID))
 
     dependency: Callable[..., Any] = get_org_replica_user_directory
     monkeypatch.setitem(
@@ -91,10 +87,9 @@ def stub_org_user_directory(
 
     return directory
 
+
 @pytest.fixture
-def stub_claims(
-    monkeypatch: pytest.MonkeyPatch
-) -> AccessTokenClaims:
+def stub_claims(monkeypatch: pytest.MonkeyPatch) -> AccessTokenClaims:
     """Override the current user claims with test admin claims.
 
     Args:
@@ -123,6 +118,4 @@ def struct_create_payload() -> StructCreateScheme:
     Returns:
         StructCreateScheme: Struct creation data.
     """
-    return StructCreateScheme(
-        name=STRUCT_NAME
-    )
+    return StructCreateScheme(name=STRUCT_NAME)

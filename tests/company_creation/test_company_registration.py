@@ -2,7 +2,6 @@ import datetime
 from unittest.mock import AsyncMock
 
 import pytest
-
 from src.core.resources.enums import RoleEnum
 from src.modules.auth.models import Account, Company, Invite, Secrets
 from src.modules.auth.resources.enums import InvitePurposeEnum
@@ -20,6 +19,7 @@ from src.modules.auth.resources.exceptions import (
 from src.modules.auth.schemas import CompanySignUpEmailConfirmation, UserAdminAndCompanyRegistration
 from src.modules.auth.services.password_service import PasswordService
 from src.modules.auth.services.registration_service import RegistrationService
+
 from tests.company_creation.repositories import FakeDatabase
 
 from .constants import (
@@ -44,10 +44,7 @@ async def test_check_account_email(
         registration_service: Registration service used by the test.
         mock_idempotency: Mock idempotency.
     """
-    await registration_service.check_account_email(
-        account_email=ADMIN_EMAIL,
-        idempotency=mock_idempotency
-    )
+    await registration_service.check_account_email(account_email=ADMIN_EMAIL, idempotency=mock_idempotency)
 
     assert len(fake_db.invites) == 1
 
@@ -206,6 +203,7 @@ async def test_company_sign_up_email_confirmation_invite_already_used(
             idempotency=mock_idempotency,
         )
 
+
 async def test_company_sign_up_email_confirmation_invite_wrong_recipient(
     company_sign_up_email_confirmation_payload: CompanySignUpEmailConfirmation,
     new_invite_company_registration: Invite,
@@ -226,6 +224,7 @@ async def test_company_sign_up_email_confirmation_invite_wrong_recipient(
             payload=company_sign_up_email_confirmation_payload,
             idempotency=mock_idempotency,
         )
+
 
 async def test_company_sign_up_email_confirmation_account_already_exists(
     company_sign_up_email_confirmation_payload: CompanySignUpEmailConfirmation,
@@ -248,6 +247,7 @@ async def test_company_sign_up_email_confirmation_account_already_exists(
             payload=company_sign_up_email_confirmation_payload,
             idempotency=mock_idempotency,
         )
+
 
 async def test_create_company_and_admin(  # noqa: PLR0913, PLR0917
     new_account: Account,
@@ -355,6 +355,7 @@ async def test_create_company_and_admin_account_not_found(
             idempotency=mock_idempotency,
             registration_token=REGISTRATION_TOKEN,
         )
+
 
 async def test_create_company_and_admin_account_secret_already_exists(
     new_secrets: Secrets,

@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import Depends
+
 from shared.jwt.claims_scheme import AccessTokenClaims
 from shared.jwt.dependencies import make_jwt_dependencies
 from shared.jwt.service import JWTDecoderService

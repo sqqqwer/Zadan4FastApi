@@ -1,4 +1,3 @@
-
 from uuid import UUID
 
 from src.modules.org.public.dto import UserRef as OrgUserRef
@@ -30,8 +29,10 @@ class StubTasksUserDirectory:
                 user_id=user_id,
                 full_name="Test Test",
                 company_id=self.company_id,
-            ) for user_id in user_ids
+            )
+            for user_id in user_ids
         }
+
 
 class StubOrgUserDirectory:
     """Stub user directory for the org module."""

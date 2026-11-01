@@ -4,8 +4,8 @@ import pytest
 from fastapi import status
 from httpx import AsyncClient
 from pydantic import BaseModel
-
 from src.core.schemas.token_claims import AccessTokenClaims
+
 from tests.stubs import StubOrgUserDirectory, StubTasksUserDirectory
 
 
@@ -43,16 +43,14 @@ from tests.stubs import StubOrgUserDirectory, StubTasksUserDirectory
             id="task_create",
         ),
     ],
-    indirect=["endpoint_arg", "payload_arg"]
+    indirect=["endpoint_arg", "payload_arg"],
 )
 async def test_param_idempotency_task_create(  # noqa: PLR0913, PLR0917
     endpoint_arg: str,
     payload_arg: BaseModel | None,
     expected_status_code: int,
-
     get_async_client: AsyncClient,
     idempotency_key: UUID,
-
     stub_claims: AccessTokenClaims,
     stub_tasks_user_directory: StubTasksUserDirectory,
     stub_org_user_directory: StubOrgUserDirectory,

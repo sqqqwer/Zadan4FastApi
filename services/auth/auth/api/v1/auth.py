@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Cookie, Response, status
 from pydantic import EmailStr
+
 from shared.pagination.dependencies import PaginationDependency
 
 from ...dependencies.idempotency import IdempotencyServiceDependency

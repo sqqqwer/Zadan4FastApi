@@ -6,7 +6,6 @@ from fastapi import status
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.modules.auth.models import Company, Invite, RegistrationSession, Secrets, User
 from src.modules.auth.schemas import CompanySignUpEmailConfirmation, UserAdminAndCompanyRegistration
 from src.modules.auth.services.constants import REGISTRATION_SESSION_ALIAS
@@ -52,7 +51,6 @@ async def test_registration_cannot_be_hijacked(  # noqa: PLR0913, PLR0917
     await test_db.refresh(registration_invites[0])
     assert registration_invites[0].used_at is not None
 
-
     client.cookies.clear()
     if attacker_session == "another_account":
         attacker_confirmation = await client.post(
@@ -72,9 +70,10 @@ async def test_registration_cannot_be_hijacked(  # noqa: PLR0913, PLR0917
     assert await test_db.scalar(select(Secrets).where(Secrets.account_id == account_id)) is None
     assert await test_db.scalar(select(Company).where(Company.name == payload.company_name)) is None
     assert await test_db.scalar(select(User)) is None
-    assert await test_db.scalar(
-        select(RegistrationSession).where(RegistrationSession.token_hash == owner_token_hash)
-    ) is not None
+    assert (
+        await test_db.scalar(select(RegistrationSession).where(RegistrationSession.token_hash == owner_token_hash))
+        is not None
+    )
 
     client.cookies.clear()
     complete_response = await client.post(
@@ -97,9 +96,10 @@ async def test_registration_cannot_be_hijacked(  # noqa: PLR0913, PLR0917
     saved_company = await test_db.get(Company, UUID(data["company_id"]))
     assert saved_company is not None
     assert saved_company.name == payload.company_name
-    assert await test_db.scalar(
-        select(RegistrationSession).where(RegistrationSession.token_hash == owner_token_hash)
-    ) is None
+    assert (
+        await test_db.scalar(select(RegistrationSession).where(RegistrationSession.token_hash == owner_token_hash))
+        is None
+    )
 
     replay_response = await client.post(
         "/auth/api/v1/sign-up-complete",

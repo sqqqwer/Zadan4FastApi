@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
 from shared.base.schemas import BaseModelCreateScheme, BaseModelResponseScheme, BaseModelUpdateScheme
 
 from ..resources.constants import MAX_TASK_ESTIMATED_TIME_IN_MINUTES

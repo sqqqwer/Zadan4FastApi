@@ -7,7 +7,6 @@ from uuid import UUID, uuid4
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.core.dependencies.jwt import get_current_claims
 from src.core.main import app
 from src.core.request_context import correlation_id_var
@@ -25,6 +24,7 @@ from src.modules.tasks.schemas import (
 )
 from src.modules.tasks.services.task_service import TaskService
 from src.shared.outbox.repository import OutboxAbstractRepository
+
 from tests.stubs import StubTasksUserDirectory
 
 from . import constants
@@ -40,6 +40,7 @@ def fake_db() -> FakeDatabase:
     """
     return FakeDatabase()
 
+
 @pytest.fixture
 def mock_uow() -> AsyncMock:
     """Create a mock unit of work.
@@ -48,6 +49,7 @@ def mock_uow() -> AsyncMock:
         AsyncMock: Mock unit of work.
     """
     return AsyncMock(spec=UowAbstract)
+
 
 @pytest.fixture
 def mock_outbox_repository() -> AsyncMock:
@@ -58,6 +60,7 @@ def mock_outbox_repository() -> AsyncMock:
     """
     return AsyncMock(spec=OutboxAbstractRepository)
 
+
 @pytest.fixture
 def stub_user_directory() -> StubTasksUserDirectory:
     """Create a mock user directory.
@@ -66,6 +69,7 @@ def stub_user_directory() -> StubTasksUserDirectory:
         UserDirectory: Mock outbox repository.
     """
     return StubTasksUserDirectory(company_id=constants.COMPANY_ID)
+
 
 @pytest.fixture
 def mock_idempotency() -> AsyncMock:
@@ -78,6 +82,7 @@ def mock_idempotency() -> AsyncMock:
     service.check_operation.return_value = None
     return service
 
+
 @pytest.fixture(autouse=True)
 def correlation_context() -> Iterator[None]:
     """Create a correlation id."""
@@ -86,6 +91,7 @@ def correlation_context() -> Iterator[None]:
         yield
     finally:
         correlation_id_var.reset(token)
+
 
 @pytest.fixture
 def task_service(
@@ -117,6 +123,7 @@ def task_service(
         outbox_repository=mock_outbox_repository,
     )
 
+
 @pytest.fixture
 def task_creation_payload() -> TaskCreatePayloadScheme:
     """Create task create payload.
@@ -134,6 +141,7 @@ def task_creation_payload() -> TaskCreatePayloadScheme:
         executor_ids=constants.EXECUTOR_IDS,
     )
 
+
 @pytest.fixture
 def task_update_payload() -> TaskCreatePayloadScheme:
     """Create task update payload.
@@ -150,6 +158,7 @@ def task_update_payload() -> TaskCreatePayloadScheme:
         observer_ids=constants.UPDATED_OBSERVER_IDS,
         executor_ids=constants.UPDATED_EXECUTOR_IDS,
     )
+
 
 @pytest.fixture
 async def new_task(
@@ -181,6 +190,7 @@ async def new_task(
     task = await repository.create(scheme)
     return task
 
+
 @pytest.fixture
 async def new_task_different_company(
     new_task: Task,
@@ -195,6 +205,7 @@ async def new_task_different_company(
     """
     new_task.company_id = constants.DIFFERRNT_COMPANY_ID
     return new_task
+
 
 @pytest.fixture
 async def stub_user_directory_user_not_found(
@@ -263,8 +274,6 @@ def stub_claims(monkeypatch: pytest.MonkeyPatch) -> AccessTokenClaims:
     dependency: Callable[..., Any] = get_current_claims
     monkeypatch.setitem(app.dependency_overrides, dependency, lambda: claims)
     return claims
-
-
 
 
 @pytest.fixture

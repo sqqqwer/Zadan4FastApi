@@ -4,12 +4,11 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
+import src.core.database as session_dependencies
 from httpx import ASGITransport, AsyncClient
 from pydantic import BaseModel
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-import src.core.database as session_dependencies
 from src.core.database import DATABASE_URL
 from src.core.dependencies.jwt import get_current_claims
 from src.core.main import app
@@ -23,6 +22,7 @@ from src.modules.org.schemas import PositionAssignUserScheme, PositionCreateSche
 from src.modules.tasks.dependencies.user_directory import get_tasks_replica_user_directory
 from src.modules.tasks.models.task import Task
 from src.modules.tasks.schemas import TaskCreatePayloadScheme
+
 from tests.stubs import StubOrgUserDirectory, StubTasksUserDirectory
 
 from .constants import COMPANY_ID, TEST_EMAIL, USER_ID_ADD_TO_TASK
@@ -41,11 +41,9 @@ async def get_async_client(test_db: AsyncSession) -> AsyncIterator[AsyncClient]:
     """
     transport = ASGITransport(app=app)
 
-    async with AsyncClient(
-        transport=transport,
-        base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
+
 
 @pytest.fixture
 def idempotency_key() -> UUID:
@@ -58,9 +56,7 @@ def idempotency_key() -> UUID:
 
 
 @pytest.fixture
-def stub_tasks_user_directory(
-    monkeypatch: pytest.MonkeyPatch
-) -> StubTasksUserDirectory:
+def stub_tasks_user_directory(monkeypatch: pytest.MonkeyPatch) -> StubTasksUserDirectory:
     """Override the tasks user directory with a stub.
 
     Args:
@@ -69,9 +65,7 @@ def stub_tasks_user_directory(
     Returns:
         StubTasksUserDirectory: Stub tasks user directory.
     """
-    directory = StubTasksUserDirectory(
-        company_id=UUID(COMPANY_ID)
-    )
+    directory = StubTasksUserDirectory(company_id=UUID(COMPANY_ID))
 
     dependency: Callable[..., Any] = get_tasks_replica_user_directory
     monkeypatch.setitem(
@@ -84,9 +78,7 @@ def stub_tasks_user_directory(
 
 
 @pytest.fixture
-def stub_org_user_directory(
-    monkeypatch: pytest.MonkeyPatch
-) -> StubOrgUserDirectory:
+def stub_org_user_directory(monkeypatch: pytest.MonkeyPatch) -> StubOrgUserDirectory:
     """Override the org user directory with a stub.
 
     Args:
@@ -95,9 +87,7 @@ def stub_org_user_directory(
     Returns:
         StubOrgUserDirectory: Stub org user directory.
     """
-    directory = StubOrgUserDirectory(
-        company_id=UUID(COMPANY_ID)
-    )
+    directory = StubOrgUserDirectory(company_id=UUID(COMPANY_ID))
 
     dependency: Callable[..., Any] = get_org_replica_user_directory
     monkeypatch.setitem(
@@ -108,10 +98,9 @@ def stub_org_user_directory(
 
     return directory
 
+
 @pytest.fixture
-def stub_claims(
-    monkeypatch: pytest.MonkeyPatch
-) -> AccessTokenClaims:
+def stub_claims(monkeypatch: pytest.MonkeyPatch) -> AccessTokenClaims:
     """Override the current user claims with test admin claims.
 
     Args:
@@ -150,6 +139,7 @@ def task_create_payload() -> TaskCreatePayloadScheme:
         executor_ids=[uuid4(), uuid4()],
     )
 
+
 @pytest.fixture
 def position_create_payload() -> PositionCreateScheme:
     """Create position data for the test request.
@@ -160,6 +150,7 @@ def position_create_payload() -> PositionCreateScheme:
     return PositionCreateScheme(
         name="test",
     )
+
 
 @pytest.fixture
 def position_assign_user_payload() -> PositionAssignUserScheme:
@@ -172,6 +163,7 @@ def position_assign_user_payload() -> PositionAssignUserScheme:
         user_id=UUID(USER_ID_ADD_TO_TASK),
     )
 
+
 @pytest.fixture
 def struct_create_payload() -> StructCreateScheme:
     """Create struct data for the test request.
@@ -179,9 +171,7 @@ def struct_create_payload() -> StructCreateScheme:
     Returns:
         StructCreateScheme: Struct creation data.
     """
-    return StructCreateScheme(
-        name="test"
-    )
+    return StructCreateScheme(name="test")
 
 
 @pytest.fixture
@@ -218,6 +208,7 @@ async def endpoint_arg(
         url = url.format(position_id=position.id)
 
     return url
+
 
 @pytest.fixture
 def payload_arg(request: pytest.FixtureRequest) -> BaseModel | None:

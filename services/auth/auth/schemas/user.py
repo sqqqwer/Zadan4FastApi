@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
 from shared.resources.enums import RoleEnum
 
 from .mixins import IdMixin

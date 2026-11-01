@@ -2,8 +2,9 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends
-from shared.uow.session_scope import session_scope
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from shared.uow.session_scope import session_scope
 
 from ..database import async_session_factory
 

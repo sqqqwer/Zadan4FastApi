@@ -6,7 +6,6 @@ from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
 from src.core.main import app
 from src.core.models.idempotency import Idempotency
 from src.core.repositories.idempotency import IdempotencySqlAlchemyRepository

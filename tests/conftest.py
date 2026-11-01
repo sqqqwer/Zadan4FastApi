@@ -10,13 +10,12 @@ import logging
 from collections.abc import AsyncIterator
 
 import pytest
+import src.core.database as session_dependencies
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-
-import src.core.database as session_dependencies
 from src.core.database import DATABASE_URL
 
 
@@ -34,9 +33,7 @@ def disable_logging():
 
 
 @pytest.fixture()
-async def test_db(
-    monkeypatch: pytest.MonkeyPatch
-) -> AsyncIterator[AsyncSession]:
+async def test_db(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncSession]:
     """Get a test database session and roll back its changes after the test.
 
     Args:

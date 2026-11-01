@@ -25,6 +25,7 @@ def make_jwt_dependencies(
     Returns:
         tuple: Current claims dependency followed by the admin claims dependency.
     """
+
     def get_current_claims(
         jwt_decoder: Annotated[JWTDecoderService, Depends(decoder_dependency)],
         credentials: BearerCredentialsDependency,

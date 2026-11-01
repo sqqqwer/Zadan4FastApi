@@ -10,7 +10,6 @@ from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.core.main import app
 from src.core.request_context import correlation_id_var
 from src.core.services.idempotency import IdempotencyAbstractService
@@ -32,6 +31,7 @@ from src.modules.auth.services.registration_service import RegistrationService
 from src.modules.auth.services.registration_session_service import RegistrationSessionService
 from src.modules.auth.services.user_service import UserService
 from src.shared.outbox.repository import OutboxAbstractRepository
+
 from tests.company_creation.repositories import (
     AccountMockRepository,
     CompanyMockRepository,
@@ -83,6 +83,7 @@ def mock_outbox_repository() -> AsyncMock:
     """
     return AsyncMock(spec=OutboxAbstractRepository)
 
+
 @pytest.fixture
 def mock_idempotency() -> AsyncMock:
     """Create a mock idempotency service.
@@ -93,6 +94,7 @@ def mock_idempotency() -> AsyncMock:
     service = AsyncMock(spec=IdempotencyAbstractService)
     service.check_operation.return_value = None
     return service
+
 
 @pytest.fixture(autouse=True)
 def correlation_context() -> Iterator[None]:
@@ -354,8 +356,6 @@ async def get_async_client(
         yield client
 
 
-
-
 @pytest.fixture
 async def registration_invites(test_db: AsyncSession) -> list[Invite]:
     """Create registration invites for the owner and another account.
@@ -465,11 +465,13 @@ async def company_registration_data(  # noqa: PLR0913, PLR0917
     elif request.param == "account_not_found":
         data["account"] = WRONG_ADMIN_EMAIL
     elif request.param == "secrets_already_exist":
-        test_db.add(Secrets(
-            account_id=UUID(response.json()["id"]),
-            user=User(first_name=ADMIN_FIRST_NAME, last_name=ADMIN_LAST_NAME),
-            password_hash=PasswordService().password_hash(payload.password),
-        ))
+        test_db.add(
+            Secrets(
+                account_id=UUID(response.json()["id"]),
+                user=User(first_name=ADMIN_FIRST_NAME, last_name=ADMIN_LAST_NAME),
+                password_hash=PasswordService().password_hash(payload.password),
+            )
+        )
 
     await test_db.commit()
     return data

@@ -1,9 +1,10 @@
 import logging
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from shared.events.bus import AbstractEventsBus
 from shared.events.envelope import EventEnvelope
 from shared.events.types import EventType
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from .dependencies.reposiroties import get_replica_user_repository
 from .schemas.users_replica import ReplicaUserCreateScheme

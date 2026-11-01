@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import Depends
 from pydantic import SecretStr
+
 from shared.idempotency.dependencies import make_idempotency_service_dependency
 from shared.idempotency.repository import IdempotencyAbstractRepository, IdempotencySqlAlchemyRepository
 from shared.idempotency.service import IdempotencyAbstractService

@@ -5,7 +5,6 @@ from fastapi import status
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.modules.tasks.models.task import Task
 from src.modules.tasks.resources.enums import TaskStatusEnum
 from src.modules.tasks.schemas import TaskCreatePayloadScheme, TaskResponseScheme, TaskStatusScheme
@@ -164,9 +163,12 @@ async def test_task_update(  # noqa: PLR0913, PLR0917
         assert TaskResponseScheme.model_validate(saved_task) == TaskResponseScheme.model_validate(response.json())
         assert TaskCreatePayloadScheme.model_validate(response.json()) == task_update_payload
     elif saved_task is not None:
-        assert TaskResponseScheme.model_validate(saved_task).model_dump(
-            include=set(TaskCreatePayloadScheme.model_fields),
-        ) == task_creation_payload.model_dump()
+        assert (
+            TaskResponseScheme.model_validate(saved_task).model_dump(
+                include=set(TaskCreatePayloadScheme.model_fields),
+            )
+            == task_creation_payload.model_dump()
+        )
 
 
 @pytest.mark.parametrize(

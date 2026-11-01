@@ -3,7 +3,6 @@ from typing import override
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr
-
 from src.core.resources.enums import RoleEnum
 from src.modules.auth.models.account import Account
 from src.modules.auth.models.company import Company

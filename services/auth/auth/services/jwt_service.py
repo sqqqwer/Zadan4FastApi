@@ -3,6 +3,7 @@ from typing import override
 
 import jwt
 from pydantic import SecretStr
+
 from shared.jwt.claims_scheme import AccessTokenClaims
 
 

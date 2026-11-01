@@ -1,9 +1,10 @@
 import logging
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from shared.events.bus import AbstractEventsBus
 from shared.events.envelope import EventEnvelope
 from shared.events.types import EventType
-from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 

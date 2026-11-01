@@ -5,6 +5,7 @@ import secrets
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr
+
 from shared.correlation.request_context import correlation_id_var
 from shared.events.envelope import EventEnvelope
 from shared.events.types import EventType

@@ -20,18 +20,23 @@ tasks-platform-tasks = { path = "services/tasks", develop = true }
 
 [tool.ruff]
 target-version = "py312"
-exclude = [".git", "__pycache__", "**/migrations/*.py", "alembic/", ".venv"]
+src = [".", "services/auth", "services/org", "services/tasks", "shared"]
+extend-exclude = ["**/alembic/**", "**/migrations/**", "artefacts", "__pycache__"]
 force-exclude = true
 line-length = 119
-lint.extend-select = ["D", "RUF", "I", "E", "W", "F", "UP", "B", "SIM", "PL", "TCH"]
-lint.ignore = [
+
+[tool.ruff.lint]
+extend-select = ["D", "RUF", "I", "E", "W", "F", "UP", "B", "SIM", "PL", "TC"]
+ignore = [
     "RUF001",
     "D100",
     "D104",
     "D106",
     "D105"
 ]
-lint.pydocstyle.convention = "google"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.pytest]
 ini_options.testpaths = ["tests"]

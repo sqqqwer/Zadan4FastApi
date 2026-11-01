@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import Depends
+
 from shared.http.dependencies import AuthHttpClientDependency
 from shared.jwt.dependencies import BearerCredentialsDependency
 

@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
 from shared.base.schemas import BaseModelCreateScheme, BaseModelResponseScheme, BaseModelUpdateScheme
 
 

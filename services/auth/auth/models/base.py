@@ -1,5 +1,6 @@
-from shared.base.models.models import BaseModel, BaseModelWithoutId
 from sqlalchemy import MetaData
+
+from shared.base.models.models import BaseModel, BaseModelWithoutId
 
 
 class AuthBaseModelWithoutId(BaseModelWithoutId):

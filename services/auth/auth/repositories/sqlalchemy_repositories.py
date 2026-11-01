@@ -4,10 +4,11 @@ from typing import override
 from uuid import UUID
 
 from pydantic import EmailStr
-from shared.resources.enums import RoleEnum
 from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
+
+from shared.resources.enums import RoleEnum
 
 from ..models.account import Account
 from ..models.company import Company

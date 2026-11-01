@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import Depends
+
 from shared.uow.service import UowAbstract, UowSqlAlchemy
 
 from .session import SessionDependency
