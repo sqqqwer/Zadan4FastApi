@@ -42,7 +42,6 @@ class OperationsService:
                 await self.repository.check_connection()
         except Exception:
             logger.exception("Readiness check failed: database")
-            # Clear the failed transaction before get_session performs its commit.
             await self.repository.rollback()
             return "error"
         return "ok"
@@ -134,7 +133,6 @@ class OperationsService:
             offset = committed[partition].offset if partition in committed else -1
             committed_offset = offset if offset >= 0 else None
             beginning, end = beginnings[partition], ends[partition]
-            # Match the worker's earliest reset for missing or expired offsets.
             effective_offset = offset if beginning <= offset <= end else beginning
             result.append(
                 ConsumerPartitionLag(
