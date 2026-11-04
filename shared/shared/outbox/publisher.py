@@ -6,6 +6,7 @@ from aiokafka.errors import KafkaError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from shared.correlation.request_context import correlation_id_var
 from shared.events.envelope import EventEnvelope
 from shared.events.kafka_adapters import KafkaEventProducer
 from shared.outbox.model_mixin import OutboxMessagesMixin
@@ -50,6 +51,7 @@ class OutboxPublisher:
             for message in messages:
                 envelope = EventEnvelope.model_validate(message.envelope)
                 message.attempts += 1
+                correlation_token = correlation_id_var.set(str(envelope.correlation_id))
 
                 try:
                     async with asyncio.timeout(10):
@@ -65,6 +67,8 @@ class OutboxPublisher:
                         f"Outbox event published to Kafka: event_type={message.event_type}, "
                         f"event_id={message.event_id}, topic={envelope.producer}.events"
                     )
+                finally:
+                    correlation_id_var.reset(correlation_token)
 
     async def run(self) -> None:
         """Poll the outbox and retry publication after failed iterations."""

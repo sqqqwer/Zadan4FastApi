@@ -1,9 +1,11 @@
 import asyncio
+import json
 import logging
 from base64 import b64encode
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
+from uuid import UUID
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, TopicPartition
 from aiokafka.structs import ConsumerRecord
@@ -151,6 +153,15 @@ class KafkaEventConsumer:
         attempts: int,
         envelope: EventEnvelope | None,
     ) -> None:
+        if envelope is None:
+            try:
+                payload = json.loads(message.value or b"null")
+                correlation_id = UUID(payload["correlation_id"])
+            except (ValueError, KeyError, TypeError, AttributeError):
+                pass
+            else:
+                correlation_id_var.set(str(correlation_id))
+
         encoding: Literal["utf-8", "base64"] = "utf-8"
         original_message = None
         if message.value is not None:
@@ -169,7 +180,7 @@ class KafkaEventConsumer:
             reason=str(error),
             error_type=type(error).__name__,
             attempts=attempts,
-            correlation_id=envelope.correlation_id if envelope is not None else None,
+            correlation_id=UUID(correlation_id_var.get()) if correlation_id_var.get() != "-" else None,
             failed_at=datetime.now(UTC),
         )
         topic = f"{message.topic}.dlq"

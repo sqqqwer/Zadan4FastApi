@@ -5,6 +5,7 @@ from functools import partial
 from sqlalchemy.exc import SQLAlchemyError
 
 from shared.events.bus import KafkaEventsBus
+from shared.events.exceptions import is_transient_error
 from shared.events.kafka_adapters import KafkaEventConsumer
 from shared.inbox.repository import InboxSqlAlchemyRepository
 from shared.logging.config import setup_logging
@@ -26,7 +27,9 @@ async def monitor_timeouts(settings: Settings) -> None:
         try:
             async with get_session() as session:
                 await get_saga_service(session).log_stalled(settings.saga_step_timeout_seconds)
-        except SQLAlchemyError:
+        except Exception as error:
+            if not isinstance(error, SQLAlchemyError) and not is_transient_error(error):
+                raise
             logger.exception("Saga timeout check failed")
         await asyncio.sleep(settings.saga_timeout_check_interval_seconds)
 
