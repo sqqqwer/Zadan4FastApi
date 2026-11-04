@@ -8,6 +8,7 @@ from shared.correlation.middleware import correlation_id_middleware
 from shared.logging.config import setup_logging
 from shared.resources.exceptions_handler import exception_handlers
 
+from .api.operations import router as operations_router
 from .api.v1.tasks import router
 from .config import get_settings
 
@@ -29,3 +30,4 @@ app = FastAPI(
 )
 app.middleware("http")(correlation_id_middleware)
 app.include_router(router)
+app.include_router(operations_router)
