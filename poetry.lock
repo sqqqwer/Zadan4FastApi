@@ -1674,6 +1674,28 @@ type = "directory"
 url = "services/org"
 
 [[package]]
+name = "tasks-platform-saga"
+version = "0.1.0"
+description = "Employee onboarding saga orchestrator for Tasks Platform"
+optional = false
+python-versions = ">=3.12"
+groups = ["test"]
+files = []
+develop = true
+
+[package.dependencies]
+alembic = ">=1.19.1,<2.0.0"
+asyncpg = ">=0.31.0,<0.32.0"
+fastapi = ">=0.141.1,<0.142.0"
+pydantic-settings = ">=2.15.0,<3.0.0"
+tasks-platform-shared = "0.1.0"
+uvicorn = ">=0.52.3,<0.53.0"
+
+[package.source]
+type = "directory"
+url = "services/saga"
+
+[[package]]
 name = "tasks-platform-shared"
 version = "0.1.0"
 description = "Common infrastructure for auth, org and tasks"
@@ -1769,4 +1791,4 @@ standard = ["httptools (>=0.8.0)", "python-dotenv (>=0.13)", "pyyaml (>=5.1)", "
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12"
-content-hash = "f9677cd3e400b44af87f8bfc8ae18841c501181cb5deb3f5eb9230227a04021d"
+content-hash = "5bb54d2e4557a4524ed3b857c5785c3db96ea1be2087ef2f7ed59292bb88358f"

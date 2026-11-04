@@ -10,7 +10,7 @@ from shared.outbox.repository import OutboxAbstractRepository
 from ..models.saga import Saga
 from ..repositories.abstracts import SagaAbstractRepository
 from ..resources.exceptions import InvalidSagaEvent, SagaNotFound
-from ..schemas.saga import SagaResultPayload
+from ..schemas.saga import SagaResultPayload, StalledSagaResponse, StalledSagasResponse
 from .constants import EVENT_PRODUCER
 
 logger = logging.getLogger(__name__)
@@ -40,20 +40,38 @@ class SagaAbstractService(ABC):
         """Apply a participant's reply through the scenario's state and step guards."""
         ...
 
-    async def log_stalled(self, timeout_seconds: float) -> None:
-        """Report overdue steps of all scenarios without automatically cancelling them."""
+    async def list_stalled(self, timeout_seconds: float) -> StalledSagasResponse:
+        """Get overdue steps of all scenarios using the same cutoff as the monitor."""
         now = datetime.now(UTC)
         sagas = await self.saga_repository.list_stalled(now - timedelta(seconds=timeout_seconds))
-        for saga in sagas:
+        items = [
+            StalledSagaResponse(
+                saga_id=saga.saga_id,
+                saga_type=saga.saga_type,
+                business_key=saga.business_key,
+                state=saga.state,
+                step=saga.step,
+                updated_at=saga.updated_at,
+                waiting_seconds=(now - saga.updated_at).total_seconds(),
+                correlation_id=saga.context["correlation_id"],
+            )
+            for saga in sagas
+        ]
+        return StalledSagasResponse(timeout_seconds=timeout_seconds, total=len(items), items=items)
+
+    async def log_stalled(self, timeout_seconds: float) -> None:
+        """Report overdue steps without automatically cancelling them."""
+        response = await self.list_stalled(timeout_seconds)
+        for saga in response.items:
             logger.warning(
                 "Saga step timeout: saga_id=%s saga_type=%s state=%s step=%s waiting_seconds=%.1f correlation_id=%s",
                 saga.saga_id,
                 saga.saga_type,
                 saga.state,
                 saga.step,
-                (now - saga.updated_at).total_seconds(),
-                saga.context["correlation_id"],
-                extra={"correlation_id": saga.context["correlation_id"]},
+                saga.waiting_seconds,
+                saga.correlation_id,
+                extra={"correlation_id": str(saga.correlation_id)},
             )
 
     async def _load_saga(self, envelope: EventEnvelope) -> Saga:

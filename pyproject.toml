@@ -17,6 +17,7 @@ tasks-platform-shared = { path = "shared", develop = true }
 tasks-platform-auth = { path = "services/auth", develop = true }
 tasks-platform-org = { path = "services/org", develop = true }
 tasks-platform-tasks = { path = "services/tasks", develop = true }
+tasks-platform-saga = { path = "services/saga", develop = true }
 
 [tool.ruff]
 target-version = "py312"

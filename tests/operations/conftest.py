@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import auth.dependencies.session as auth_session_dependencies
 import org.dependencies.session as org_session_dependencies
+import saga.dependencies.session as saga_session_dependencies
 import tasks.dependencies.session as tasks_session_dependencies
 from shared.operations import service as operations
 from shared.operations.schemas import PendingOutboxMessage
@@ -19,7 +20,7 @@ from shared.operations.schemas import PendingOutboxMessage
 from . import constants
 
 
-@pytest.fixture(params=["auth", "org", "tasks"])
+@pytest.fixture(params=["auth", "org", "tasks", "saga"])
 def service_name(request: pytest.FixtureRequest) -> str:
     """Select each HTTP service for operational endpoint tests.
 
@@ -56,6 +57,7 @@ def mock_session(monkeypatch: pytest.MonkeyPatch, service_name: str) -> AsyncMoc
         "auth": auth_session_dependencies,
         "org": org_session_dependencies,
         "tasks": tasks_session_dependencies,
+        "saga": saga_session_dependencies,
     }[service_name]
     monkeypatch.setattr(session_dependencies, "async_session_factory", session_factory)
     return session

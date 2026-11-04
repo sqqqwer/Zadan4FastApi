@@ -20,4 +20,6 @@ COPY services/saga/saga ./saga
 COPY services/saga/alembic.ini ./
 COPY services/saga/alembic ./alembic
 
-CMD ["python", "-m", "saga.main_consumer"]
+EXPOSE 8000
+
+CMD ["uvicorn", "saga.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -221,8 +221,10 @@ services:
     command: ["alembic", "upgrade", "head"]
     restart: "no"
 
-  saga_consumer:
+  saga:
     <<: *saga-service
+    ports:
+      - "8003:8000"
     depends_on: &saga-dependencies
       db_saga:
         condition: service_healthy
@@ -230,6 +232,10 @@ services:
         condition: service_completed_successfully
       kafka:
         condition: service_healthy
+
+  saga_consumer:
+    <<: *saga-service
+    depends_on: *saga-dependencies
     command: ["python", "-m", "saga.main_consumer"]
     restart: unless-stopped
     stop_signal: SIGINT

@@ -210,14 +210,16 @@ async def test_consumer_lag(  # noqa: PLR0913, PLR0917
     data = ConsumerLagResponse.model_validate(response.json())
     assert data.status == "ok"
     assert data.group_id == f"tasks-platform.{service_name}"
+    expected_partitions = list(constants.PARTITION_OFFSETS)
+    if service_name == "saga":
+        expected_partitions = expected_partitions[:-1]
+        expected_lags = expected_lags[:-1]
     assert data.total_lag == sum(expected_lags)
     assert tuple(partition.lag for partition in data.partitions) == expected_lags
     if expected_lags:
-        assert [(partition.topic, partition.partition) for partition in data.partitions] == list(
-            constants.PARTITION_OFFSETS
-        )
+        assert [(partition.topic, partition.partition) for partition in data.partitions] == expected_partitions
         mock_kafka_client.list_consumer_group_offsets.assert_awaited_once_with(
-            data.group_id, partitions=list(constants.PARTITION_OFFSETS)
+            data.group_id, partitions=expected_partitions
         )
         for partition in data.partitions:
             assert partition.committed_offset is None or partition.committed_offset >= 0

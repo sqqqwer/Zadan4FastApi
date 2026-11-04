@@ -27,13 +27,14 @@ import org.dependencies.session as org_session_dependencies
 import tasks.dependencies.session as tasks_session_dependencies
 from auth.main import app as auth_app
 from org.main import app as org_app
+from saga.main import app as saga_app
 from tasks.main import app as tasks_app
 
 
 @pytest.fixture
 def service_app(service_name: str) -> FastAPI:
     """Select the HTTP application without combining service routers."""
-    return {"auth": auth_app, "org": org_app, "tasks": tasks_app}[service_name]
+    return {"auth": auth_app, "org": org_app, "tasks": tasks_app, "saga": saga_app}[service_name]
 
 
 @pytest.fixture
