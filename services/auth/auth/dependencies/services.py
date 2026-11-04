@@ -2,9 +2,12 @@ from typing import Annotated
 
 from fastapi import Depends
 from pydantic import SecretStr
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..repositories.onboarding import OnboardingRepository
 from ..services.auth_service import AuthService
 from ..services.jwt_service import JWTEncoderService
+from ..services.onboarding_service import OnboardingService
 from ..services.registration_service import RegistrationService
 from ..services.registration_session_service import AbstractRegistrationSessionService, RegistrationSessionService
 from ..services.user_service import UserService
@@ -17,8 +20,14 @@ from .repositories import (
     RefreshSessionRepositoryDependency,
     RegistrationSessionRepositoryDependency,
     UserRepositoryDependency,
+    get_outbox_repository,
 )
 from .uow import UowDependency
+
+
+def get_onboarding_service(session: AsyncSession) -> OnboardingService:
+    """Build the auth saga participant from the consumer's existing session."""
+    return OnboardingService(OnboardingRepository(session), get_outbox_repository(session))
 
 
 def get_jwt_encoder_service(settings: JwtSettingsDependency) -> JWTEncoderService:

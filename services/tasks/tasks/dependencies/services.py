@@ -1,12 +1,20 @@
 from typing import Annotated
 
 from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..repositories.onboarding import OnboardingRepository
+from ..services.onboarding_service import OnboardingService
 from ..services.task_service import TaskService
 from .jwt import AccessTokenClaimsDependency
-from .reposiroties import OutboxRepositoryDependency, TaskRepositoryDependency
+from .reposiroties import OutboxRepositoryDependency, TaskRepositoryDependency, get_outbox_repository
 from .uow import UowDependency
 from .user_directory import UserDirectoryDependency
+
+
+def get_onboarding_service(session: AsyncSession) -> OnboardingService:
+    """Build the tasks saga participant from the consumer's existing session."""
+    return OnboardingService(OnboardingRepository(session), get_outbox_repository(session))
 
 
 def get_task_service(

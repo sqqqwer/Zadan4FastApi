@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import override
 
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.base.models.models import BaseModelWithoutId
@@ -18,6 +19,11 @@ class OutboxAbstractRepository(ABC):
             envelope: Event data and metadata.
             dedup_key: Deterministic key identifying the business event.
         """
+        ...
+
+    @abstractmethod
+    async def add_once(self, envelope: EventEnvelope, dedup_key: str) -> None:
+        """Enqueue a business result unless the same result is already in the outbox."""
         ...
 
 
@@ -52,3 +58,20 @@ class OutboxSqlAlchemyRepository(OutboxAbstractRepository):
             envelope=envelope_data,
         )
         self.session.add(outbox_message)
+
+    @override
+    async def add_once(self, envelope: EventEnvelope, dedup_key: str) -> None:
+        envelope_data = envelope.model_dump(mode="json")
+        statement = (
+            insert(self.model)
+            .values(
+                event_id=envelope.event_id,
+                event_type=envelope.event_type.value,
+                aggregate_id=envelope.aggregate_id,
+                dedup_key=dedup_key,
+                payload=envelope_data["payload"],
+                envelope=envelope_data,
+            )
+            .on_conflict_do_nothing(index_elements=["dedup_key"])
+        )
+        await self.session.execute(statement)

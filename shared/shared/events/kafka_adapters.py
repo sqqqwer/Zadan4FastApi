@@ -41,13 +41,15 @@ class KafkaEventProducer:
 class KafkaEventConsumer:
     """Event consumer using Kafka."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         bus: "KafkaEventsBus",
         inbox_factory: Callable[[AsyncSession], InboxAbstractRepository],
         consumer_name: str,
         kafka_bootstrap_servers: str,
         session_factory: async_sessionmaker[AsyncSession],
+        *,
+        topics: tuple[str, ...] = ("auth.events", "org.events", "tasks.events"),
     ) -> None:
         """Initialize the Kafka consumer.
 
@@ -57,6 +59,7 @@ class KafkaEventConsumer:
             consumer_name: Stable module consumer name, also used as the Kafka group ID.
             kafka_bootstrap_servers: Kafka broker addresses supplied by the service.
             session_factory: Factory for sessions in the service's own database.
+            topics: Topics needed by this consumer, including command topics for saga participants.
         """
         self.bus = bus
         self.inbox_factory = inbox_factory
@@ -64,9 +67,7 @@ class KafkaEventConsumer:
         self.session_factory = session_factory
 
         self.consumer = AIOKafkaConsumer(
-            "auth.events",
-            "org.events",
-            "tasks.events",
+            *topics,
             bootstrap_servers=kafka_bootstrap_servers,
             group_id=consumer_name,
             enable_auto_commit=False,

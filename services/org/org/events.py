@@ -7,6 +7,7 @@ from shared.events.envelope import EventEnvelope
 from shared.events.types import EventType
 
 from .dependencies.repositories import get_replica_user_repository
+from .dependencies.services import get_onboarding_service
 from .schemas.users_replica import ReplicaUserCreateScheme
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,16 @@ async def on_employee_email_changed_handler(envelope: EventEnvelope, session: As
     logger.info(f"Org employee.email_changed handler event_id={envelope.event_id}")
 
 
+async def on_assign_employee_handler(envelope: EventEnvelope, session: AsyncSession) -> None:
+    """Assign an employee and enqueue success or a business refusal."""
+    await get_onboarding_service(session).assign_employee(envelope)
+
+
+async def on_unassign_employee_handler(envelope: EventEnvelope, session: AsyncSession) -> None:
+    """Compensate only this saga's assignment and confirm the result."""
+    await get_onboarding_service(session).unassign_employee(envelope)
+
+
 async def subscribe_handlers(bus: AbstractEventsBus) -> None:
     """Register event handlers for the org module.
 
@@ -91,3 +102,5 @@ async def subscribe_handlers(bus: AbstractEventsBus) -> None:
     await bus.subscribe(EventType.EMPLOYEE_CREATED, on_employee_created_handler)
     await bus.subscribe(EventType.EMPLOYEE_REGISTERED, on_employee_registered_handler)
     await bus.subscribe(EventType.EMPLOYEE_EMAIL_CHANGED, on_employee_email_changed_handler)
+    await bus.subscribe(EventType.ORG_ASSIGN_EMPLOYEE, on_assign_employee_handler)
+    await bus.subscribe(EventType.ORG_UNASSIGN_EMPLOYEE, on_unassign_employee_handler)

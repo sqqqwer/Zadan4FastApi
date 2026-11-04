@@ -61,7 +61,12 @@ class UserEmployeeRegistration(AccountEmail, UserScheme):
         email(alias="account"): EmailStr
         first_name: str | None
         last_name: str | None
+        position_id: UUID
+        struct_id: UUID
     """
+
+    position_id: UUID
+    struct_id: UUID
 
 
 class UserEmployeeRegistrationResponse(UserResponse, InviteToken, AccountEmail):

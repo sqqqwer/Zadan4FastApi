@@ -22,10 +22,19 @@ x-tasks-service: &tasks-service
     dockerfile: services/tasks/Dockerfile
   env_file: ./services/tasks/.env
 
+x-saga-service: &saga-service
+  image: tasks-platform-saga:local
+  pull_policy: build
+  build:
+    context: .
+    dockerfile: services/saga/Dockerfile
+  env_file: ./services/saga/.env
+
 volumes:
   pg_auth_data:
   pg_org_data:
   pg_tasks_data:
+  pg_saga_data:
   kafka_data:
 
 services:
@@ -56,6 +65,17 @@ services:
     env_file: ./services/tasks/.env
     volumes:
       - pg_tasks_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db_saga:
+    image: postgres:17
+    env_file: ./services/saga/.env
+    volumes:
+      - pg_saga_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
@@ -190,6 +210,34 @@ services:
     <<: *tasks-service
     depends_on: *tasks-dependencies
     command: ["python", "-m", "tasks.main_consumer"]
+    restart: unless-stopped
+    stop_signal: SIGINT
+
+  migrate_saga:
+    <<: *saga-service
+    depends_on:
+      db_saga:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  saga_consumer:
+    <<: *saga-service
+    depends_on: &saga-dependencies
+      db_saga:
+        condition: service_healthy
+      migrate_saga:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    command: ["python", "-m", "saga.main_consumer"]
+    restart: unless-stopped
+    stop_signal: SIGINT
+
+  saga_publisher:
+    <<: *saga-service
+    depends_on: *saga-dependencies
+    command: ["python", "-m", "saga.main_publisher"]
     restart: unless-stopped
     stop_signal: SIGINT
 

@@ -7,6 +7,7 @@ from shared.events.envelope import EventEnvelope
 from shared.events.types import EventType
 
 from .dependencies.reposiroties import get_replica_user_repository
+from .dependencies.services import get_onboarding_service
 from .schemas.users_replica import ReplicaUserCreateScheme
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,16 @@ async def on_employee_email_changed_handler(envelope: EventEnvelope, session: As
     logger.info(f"Tasks employee.email_changed handler event_id={envelope.event_id}")
 
 
+async def on_create_welcome_task_handler(envelope: EventEnvelope, session: AsyncSession) -> None:
+    """Create one welcome task and enqueue the result."""
+    await get_onboarding_service(session).create_welcome_task(envelope)
+
+
+async def on_cancel_welcome_task_handler(envelope: EventEnvelope, session: AsyncSession) -> None:
+    """Persist cancellation even when task creation has not happened yet."""
+    await get_onboarding_service(session).cancel_welcome_task(envelope)
+
+
 async def subscribe_handlers(bus: AbstractEventsBus) -> None:
     """Register event handlers for the tasks module.
 
@@ -91,3 +102,5 @@ async def subscribe_handlers(bus: AbstractEventsBus) -> None:
     await bus.subscribe(EventType.EMPLOYEE_CREATED, on_employee_created_handler)
     await bus.subscribe(EventType.EMPLOYEE_REGISTERED, on_employee_registered_handler)
     await bus.subscribe(EventType.EMPLOYEE_EMAIL_CHANGED, on_employee_email_changed_handler)
+    await bus.subscribe(EventType.TASKS_CREATE_WELCOME_TASK, on_create_welcome_task_handler)
+    await bus.subscribe(EventType.TASKS_CANCEL_WELCOME_TASK, on_cancel_welcome_task_handler)

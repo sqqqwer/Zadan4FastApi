@@ -1,13 +1,21 @@
 from typing import Annotated
 
 from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..repositories.onboarding import OnboardingRepository
+from ..services.onboarding_service import OnboardingService
 from ..services.position_service import PositionService
 from ..services.struct_service import StructService
 from .jwt import AccessTokenClaimsDependency
-from .repositories import PositionRepositoryDependency, StructRepositoryDependency
+from .repositories import PositionRepositoryDependency, StructRepositoryDependency, get_outbox_repository
 from .uow import UowDependency
 from .user_directory import UserDirectoryDependency
+
+
+def get_onboarding_service(session: AsyncSession) -> OnboardingService:
+    """Build the org saga participant from the consumer's existing session."""
+    return OnboardingService(OnboardingRepository(session), get_outbox_repository(session))
 
 
 def get_position_service(

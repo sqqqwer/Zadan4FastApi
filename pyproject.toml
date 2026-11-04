@@ -20,7 +20,7 @@ tasks-platform-tasks = { path = "services/tasks", develop = true }
 
 [tool.ruff]
 target-version = "py312"
-src = [".", "services/auth", "services/org", "services/tasks", "shared"]
+src = [".", "services/auth", "services/org", "services/tasks", "services/saga", "shared"]
 extend-exclude = ["**/alembic/**", "**/migrations/**", "artefacts", "__pycache__"]
 force-exclude = true
 line-length = 119
@@ -44,7 +44,7 @@ ini_options.asyncio_mode = "auto"
 ini_options.log_cli = false
 
 [tool.mypy]
-mypy_path = ["services/auth", "services/org", "services/tasks", "shared"]
+mypy_path = ["services/auth", "services/org", "services/tasks", "services/saga", "shared"]
 plugins = [
     
 ]

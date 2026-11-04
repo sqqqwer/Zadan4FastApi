@@ -21,9 +21,12 @@ class Invite(AuthBaseModel):
         token_hash: str
         expired_at: datetime
         used_at: datetime | None
+        invalidated_at: datetime | None
         purpose: InvitePurposeEnum
         recipient_email: str
         account_id: UUID | None
+        position_id: UUID | None
+        struct_id: UUID | None
         account: Account | None
     """
 
@@ -32,6 +35,7 @@ class Invite(AuthBaseModel):
     token_hash: Mapped[str] = mapped_column(unique=True)
     expired_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    invalidated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     purpose: Mapped[InvitePurposeEnum] = mapped_column(
         SAEnum(
             InvitePurposeEnum,
@@ -40,6 +44,9 @@ class Invite(AuthBaseModel):
         )
     )
     recipient_email: Mapped[str]
+
+    position_id: Mapped[UUID | None]
+    struct_id: Mapped[UUID | None]
 
     account_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("account.id", ondelete="CASCADE"),

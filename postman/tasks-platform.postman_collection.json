@@ -288,7 +288,7 @@
     },
     {
       "name": "02 — Auth",
-      "description": "Выполняй сверху вниз под тестовым администратором. Login/refresh сохраняют токены, приглашение сотрудника сохраняет его ID и invite-токен.",
+      "description": "Login/refresh сохраняют токены администратора, приглашение сотрудника сохраняет его ID и invite-токен. Перед приглашением создай должность и подразделение в org, привяжи должность к подразделению и заполни position_id и struct_id.",
       "item": [
         {
           "name": "01 Войти администратором",
@@ -456,10 +456,10 @@
               }
             ],
             "url": "{{auth_base_url}}/company/add-employee",
-            "description": "",
+            "description": "Сначала создай должность и подразделение в org и привяжи должность к подразделению. Их ID сохраняются в инвайте и передаются в employee.registered после завершения регистрации.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"account\": \"{{employee_email}}\",\n  \"first_name\": \"Smoke\",\n  \"last_name\": \"Employee\"\n}",
+              "raw": "{\n  \"account\": \"{{employee_email}}\",\n  \"first_name\": \"Smoke\",\n  \"last_name\": \"Employee\",\n  \"position_id\": \"{{position_id}}\",\n  \"struct_id\": \"{{struct_id}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

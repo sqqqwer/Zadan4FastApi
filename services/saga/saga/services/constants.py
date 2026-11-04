@@ -1,0 +1,21 @@
+from shared.events.types import EventType
+
+EVENT_PRODUCER = "saga"
+CONSUMER_NAME = "tasks-platform.saga"
+
+FAILURE_EVENTS = frozenset(
+    {
+        EventType.ORG_EMPLOYEE_ASSIGNMENT_FAILED,
+        EventType.TASKS_WELCOME_TASK_CREATION_FAILED,
+    }
+)
+
+RESULT_EVENTS = (
+    EventType.ORG_EMPLOYEE_ASSIGNED,
+    EventType.ORG_EMPLOYEE_ASSIGNMENT_FAILED,
+    EventType.TASKS_WELCOME_TASK_CREATED,
+    EventType.TASKS_WELCOME_TASK_CREATION_FAILED,
+    EventType.TASKS_WELCOME_TASK_CANCELLED,
+    EventType.ORG_EMPLOYEE_UNASSIGNED,
+    EventType.AUTH_INVITE_INVALIDATED,
+)

@@ -24,6 +24,7 @@ async def main() -> None:
         consumer_name="tasks-platform.org",
         kafka_bootstrap_servers=settings.kafka_bootstrap_servers,
         session_factory=async_session_factory,
+        topics=("auth.events", "org.events", "tasks.events", "saga.events"),
     )
 
     try:

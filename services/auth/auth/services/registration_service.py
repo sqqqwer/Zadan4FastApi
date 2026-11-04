@@ -26,8 +26,10 @@ from ..resources.exceptions import (
     InvalidRegistrationSession,
     InviteAlreadyUsed,
     InviteExpired,
+    InviteInvalidated,
     InviteNotFound,
     InviteNotMatchingEmailWithAccount,
+    InviteOnboardingTargetMissing,
     InviteWrongPurpose,
     NewEmailMatchesCurrentEmail,
     RegistrationSessionRequired,
@@ -305,7 +307,7 @@ class RegistrationService:
         """Create an employee account and a registration invite.
 
         Args:
-            payload: Employee email and name data.
+            payload: Employee email, name and onboarding position/department.
             company_id: Company ID.
             idempotency: Service for checking and saving idempotent operations.
 
@@ -330,12 +332,14 @@ class RegistrationService:
 
         account = await self.account_repository.create_account(account_scheme)
 
-        _invite, raw_token = await self._create_invite(
+        invite, raw_token = await self._create_invite(
             purpose=InvitePurposeEnum.EMPLOYEE_INVITATION,
             ttl=INVITE_EXPIRED_TTL_ON_EMPLOYEE_CREATE,
             recipient_email=account.email,
             account=account,
         )
+        invite.position_id = payload.position_id
+        invite.struct_id = payload.struct_id
 
         user_scheme = UserScheme(
             first_name=payload.first_name,
@@ -418,6 +422,7 @@ class RegistrationService:
             InviteExpired: If the invite has expired.
             InviteNotFound: If the invite is not found.
             InviteNotMatchingEmailWithAccount: If the invite does not match the email or account.
+            InviteOnboardingTargetMissing: If the invite has no saved position or department.
             InviteWrongPurpose: If the invite has a different purpose.
             SecretsNotExists: If the account secrets are not found.
             SecretsPasswordAlreadyExists: If the account already has a password.
@@ -430,6 +435,8 @@ class RegistrationService:
         invite = await self._get_invite_by_raw_token(invite_token, InvitePurposeEnum.EMPLOYEE_INVITATION)
         if invite.recipient_email != payload.email:
             raise InviteNotMatchingEmailWithAccount()
+        if invite.position_id is None or invite.struct_id is None:
+            raise InviteOnboardingTargetMissing()
 
         validated_email = AccountEmail(account=payload.email)
         account = await self.account_repository.get_account_with_secrets_and_user(validated_email)
@@ -477,6 +484,9 @@ class RegistrationService:
             payload={
                 "user_id": user.id,
                 "company_id": user.membership.company_id,
+                "invite_id": invite.id,
+                "position_id": invite.position_id,
+                "struct_id": invite.struct_id,
                 "user_role": user.membership.role,
                 "full_name": f"{user.first_name or ''} {user.last_name or ''}".strip(),
                 "is_active": True,
@@ -657,6 +667,8 @@ class RegistrationService:
         invite = await self.account_repository.get_invite(scheme=invite_token_hash_scheme)
         if invite is None:
             raise InviteNotFound()
+        if invite.invalidated_at is not None:
+            raise InviteInvalidated()
         if invite.expired_at <= datetime.datetime.now(datetime.UTC):
             raise InviteExpired()
         if invite.purpose != purpose_check:

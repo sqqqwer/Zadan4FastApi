@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -51,6 +52,12 @@ class InviteCreationResponse(IdMixin, InviteCreation):
         expired_at: datetime
         purpose: InvitePurposeEnum
         used_at: datetime | None
+        invalidated_at: datetime | None
+        position_id: UUID | None
+        struct_id: UUID | None
     """
 
     used_at: datetime | None
+    invalidated_at: datetime | None = None
+    position_id: UUID | None = None
+    struct_id: UUID | None = None

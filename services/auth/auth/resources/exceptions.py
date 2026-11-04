@@ -37,6 +37,18 @@ class InviteExpired(AuthModuleError, DomainValidationError):
     _message: str = "Invite has expired."
 
 
+class InviteInvalidated(AuthModuleError, DomainValidationError):
+    """The invite was invalidated by an onboarding compensation."""
+
+    _message: str = "Invite has been invalidated."
+
+
+class InviteOnboardingTargetMissing(AuthModuleError, DomainValidationError):
+    """An employee invite has no saved position or department for onboarding."""
+
+    _message: str = "Employee invite requires position_id and struct_id for onboarding."
+
+
 class InviteWrongPurpose(AuthModuleError, DomainValidationError):
     """The invite has a different purpose."""
 
