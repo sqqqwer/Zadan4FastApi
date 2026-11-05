@@ -19,6 +19,7 @@ from shared.uow.session_scope import session_scope
 from .dlq import DeadLetterMessage
 from .envelope import EventEnvelope
 from .exceptions import FatalEventError, is_transient_error
+from .types import EventType
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ class KafkaEventConsumer:
         session_factory: async_sessionmaker[AsyncSession],
         *,
         topics: tuple[str, ...] = ("auth.events", "org.events", "tasks.events"),
+        supported_schema_versions: dict[EventType, tuple[int, ...]] | None = None,
     ) -> None:
         """Initialize the Kafka consumer.
 
@@ -75,11 +77,13 @@ class KafkaEventConsumer:
             kafka_bootstrap_servers: Kafka broker addresses supplied by the service.
             session_factory: Factory for sessions in the service's own database.
             topics: Topics needed by this consumer, including command topics for saga participants.
+            supported_schema_versions: Accepted versions by event type; other events accept only version 1.
         """
         self.bus = bus
         self.inbox_factory = inbox_factory
         self.consumer_name = consumer_name
         self.session_factory = session_factory
+        self.supported_schema_versions = supported_schema_versions or {}
 
         self.consumer = AIOKafkaConsumer(
             *topics,
@@ -109,7 +113,8 @@ class KafkaEventConsumer:
                         raise FatalEventError("Event message must not be null")
                     envelope = EventEnvelope.model_validate_json(message.value)
                     correlation_id_var.set(str(envelope.correlation_id))
-                    if envelope.schema_version != 1:
+                    supported_versions = self.supported_schema_versions.get(envelope.event_type, (1,))
+                    if envelope.schema_version not in supported_versions:
                         raise FatalEventError(f"Unsupported schema_version={envelope.schema_version}")
                 async with session_scope(self.session_factory) as session:
                     inbox = self.inbox_factory(session)

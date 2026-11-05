@@ -8,7 +8,8 @@ from shared.events.types import EventType
 
 from .dependencies.reposiroties import get_replica_user_repository
 from .dependencies.services import get_onboarding_service
-from .schemas.users_replica import ReplicaUserCreateScheme
+from .resources.constants import USER_SNAPSHOT_V2
+from .schemas.users_replica import ReplicaUserCreateScheme, UserNameV2Scheme
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +22,14 @@ async def save_user_replica(envelope: EventEnvelope, session: AsyncSession) -> N
         session: Database session shared with the inbox.
     """
     repository = get_replica_user_repository(session)
+    if envelope.schema_version == USER_SNAPSHOT_V2:
+        name = UserNameV2Scheme.model_validate(envelope.payload)
+        full_name = f"{name.first_name} {name.last_name}".strip()
+    else:
+        full_name = envelope.payload["full_name"]
     scheme = ReplicaUserCreateScheme(
         id=envelope.payload["user_id"],
-        full_name=envelope.payload["full_name"],
+        full_name=full_name,
         company_id=envelope.payload["company_id"],
         is_active=envelope.payload["is_active"],
         last_event_at=envelope.occurred_at,

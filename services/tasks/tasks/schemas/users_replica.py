@@ -4,6 +4,13 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
+class UserNameV2Scheme(BaseModel):
+    """Separate name fields received in version 2 of a user snapshot."""
+
+    first_name: str
+    last_name: str
+
+
 class ReplicaUserCreateScheme(BaseModel):
     """User data received from auth for the local replica."""
 
