@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import (
 
 import auth.dependencies.session as auth_session_dependencies
 import org.dependencies.session as org_session_dependencies
+import saga.dependencies.session as saga_session_dependencies
 import tasks.dependencies.session as tasks_session_dependencies
 from auth.main import app as auth_app
 from org.main import app as org_app
@@ -40,7 +41,7 @@ def service_app(service_name: str) -> FastAPI:
 @pytest.fixture
 def database_url(service_name: str) -> str:
     """Use Compose URLs in Docker or published test database ports on the host."""
-    ports = {"auth": 5433, "org": 5434, "tasks": 5435}
+    ports = {"auth": 5433, "org": 5434, "tasks": 5435, "saga": 5436}
     return os.environ.get(
         f"{service_name.upper()}_DATABASE_URL",
         f"postgresql+asyncpg://test:test@localhost:{ports[service_name]}/test",
@@ -79,6 +80,7 @@ async def test_db(
         "auth": auth_session_dependencies,
         "org": org_session_dependencies,
         "tasks": tasks_session_dependencies,
+        "saga": saga_session_dependencies,
     }[service_name]
 
     try:
