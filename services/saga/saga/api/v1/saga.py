@@ -4,7 +4,7 @@ from ...config import get_settings
 from ...dependencies.services import SagaServiceDependency
 from ...schemas.saga import StalledSagasResponse
 
-router = APIRouter(prefix="/saga/api/v1", tags=["saga"])
+router = APIRouter(prefix="/saga/api/v1", tags=["operations"])
 
 
 @router.get("/stalled")

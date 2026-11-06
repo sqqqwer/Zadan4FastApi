@@ -8,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings."""
 
+    allowed_hosts: list[str] = ["localhost", "127.0.0.1", "tasks"]
+
     postgres_user: str
     postgres_password: SecretStr
     postgres_db: str

@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from httpx import AsyncClient
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from shared.correlation.middleware import correlation_id_middleware
 from shared.logging.config import setup_logging
@@ -28,6 +29,7 @@ app = FastAPI(
     exception_handlers=exception_handlers,
     lifespan=lifespan,
 )
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=get_settings().allowed_hosts, www_redirect=False)
 app.middleware("http")(correlation_id_middleware)
 app.include_router(router)
 app.include_router(operations_router)

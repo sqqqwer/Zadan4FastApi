@@ -13,6 +13,7 @@ os.environ.setdefault("JWT_PRIVATE_KEY_PATH", str(Path(__file__).resolve().paren
 os.environ.setdefault("JWT_PUBLIC_KEY_PATH", str(Path(__file__).resolve().parents[1] / "keys/test_public.pem"))
 os.environ.setdefault("IDEMPOTENCY_HMAC_SECRET", "test-idempotency-secret")
 os.environ.setdefault("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+os.environ.setdefault("ALLOWED_HOSTS", '["test"]')
 
 import pytest
 from fastapi import FastAPI
