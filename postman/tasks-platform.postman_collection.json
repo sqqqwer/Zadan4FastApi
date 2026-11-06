@@ -17,19 +17,19 @@
   "variable": [
     {
       "key": "auth_base_url",
-      "value": "http://localhost:8000/auth/api/v1",
+      "value": "http://localhost:8080/auth/api/v1",
       "type": "string",
       "description": "Адрес auth с префиксом API, без завершающего /."
     },
     {
       "key": "org_base_url",
-      "value": "http://localhost:8000/org/api/v1",
+      "value": "http://localhost:8080/org/api/v1",
       "type": "string",
       "description": "Адрес org с префиксом API, без завершающего /."
     },
     {
       "key": "tasks_base_url",
-      "value": "http://localhost:8000/tasks/api/v1",
+      "value": "http://localhost:8080/tasks/api/v1",
       "type": "string",
       "description": "Адрес tasks с префиксом API, без завершающего /."
     },

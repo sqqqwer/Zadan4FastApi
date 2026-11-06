@@ -38,6 +38,23 @@ volumes:
   kafka_data:
 
 services:
+  gateway:
+    image: tasks-platform-gateway:local
+    pull_policy: build
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    ports:
+      - "8080:8000"
+    env_file: ./services/gateway/.env
+    secrets:
+      - jwt_public_key
+    depends_on:
+      - auth
+      - org
+      - tasks
+      - saga
+
   db_auth:
     image: postgres:17
     env_file: ./services/auth/.env
@@ -114,8 +131,6 @@ services:
 
   auth:
     <<: *auth-service
-    ports:
-      - "8000:8000"
     depends_on: &auth-dependencies
       db_auth:
         condition: service_healthy
@@ -151,8 +166,6 @@ services:
 
   org:
     <<: *org-service
-    ports:
-      - "8001:8000"
     depends_on: &org-dependencies
       db_org:
         condition: service_healthy
@@ -187,8 +200,6 @@ services:
 
   tasks:
     <<: *tasks-service
-    ports:
-      - "8002:8000"
     depends_on: &tasks-dependencies
       db_tasks:
         condition: service_healthy
@@ -223,8 +234,6 @@ services:
 
   saga:
     <<: *saga-service
-    ports:
-      - "8003:8000"
     depends_on: &saga-dependencies
       db_saga:
         condition: service_healthy
