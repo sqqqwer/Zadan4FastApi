@@ -1,0 +1,85 @@
+import asyncio
+from logging.config import fileConfig
+
+from notification.database import DATABASE_URL
+from notification.models import metadata as notification_metadata
+from sqlalchemy import pool
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from alembic import context
+from alembic.runtime.environment import NameFilterParentNames
+
+config = context.config
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+config.set_main_option("sqlalchemy.url", DATABASE_URL.render_as_string(hide_password=False).replace("%", "%%"))
+
+target_metadata = notification_metadata
+
+
+def include_name(name: str | None, type_: str, parent_names: NameFilterParentNames) -> bool:
+    """Limit autogenerate to the notification schema."""
+    if type_ == "schema":
+        return name == "notification"
+    return True
+
+
+def run_migrations_offline() -> None:
+    """Run migrations without a database connection."""
+    context.configure(
+        url=config.get_main_option("sqlalchemy.url"),
+        target_metadata=target_metadata,
+        include_schemas=True,
+        include_name=include_name,
+        compare_type=True,
+        compare_server_default=True,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def do_run_migrations(connection: Connection) -> None:
+    """Run migrations using the database connection."""
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_schemas=True,
+        include_name=include_name,
+        compare_type=True,
+        compare_server_default=True,
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_async_migrations() -> None:
+    """Connect the async engine to the migration context."""
+    connectable = async_engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+
+    try:
+        async with connectable.connect() as connection:
+            await connection.run_sync(do_run_migrations)
+    finally:
+        await connectable.dispose()
+
+
+def run_migrations_online() -> None:
+    """Run migrations with a database connection."""
+    asyncio.run(run_async_migrations())
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()

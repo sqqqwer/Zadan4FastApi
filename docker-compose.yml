@@ -30,12 +30,21 @@ x-saga-service: &saga-service
     dockerfile: services/saga/Dockerfile
   env_file: ./services/saga/.env
 
+x-notification-service: &notification-service
+  image: tasks-platform-notification:local
+  pull_policy: build
+  build:
+    context: .
+    dockerfile: services/notification/Dockerfile
+  env_file: ./services/notification/.env
+
 volumes:
   pg_auth_data:
   pg_org_data:
   pg_tasks_data:
   pg_saga_data:
   kafka_data:
+  pg_notification_data:
 
 services:
   gateway:
@@ -253,6 +262,37 @@ services:
     <<: *saga-service
     depends_on: *saga-dependencies
     command: ["python", "-m", "saga.main_publisher"]
+    restart: unless-stopped
+    stop_signal: SIGINT
+
+  db_notification:
+    image: postgres:17
+    env_file: ./services/notification/.env
+    volumes:
+      - pg_notification_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate_notification:
+    <<: *notification-service
+    depends_on:
+      db_notification:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  notification_consumer:
+    <<: *notification-service
+    depends_on:
+      db_notification:
+        condition: service_healthy
+      migrate_notification:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
     restart: unless-stopped
     stop_signal: SIGINT
 
