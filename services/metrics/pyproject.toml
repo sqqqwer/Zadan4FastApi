@@ -1,0 +1,24 @@
+[project]
+name = "tasks-platform-metrics"
+version = "0.1.0"
+description = "Prometheus exporter for Tasks Platform"
+requires-python = ">=3.12"
+
+dependencies = [
+    "tasks-platform-shared==0.1.0",
+    "fastapi>=0.141.1,<0.142.0",
+    "uvicorn>=0.52.3,<0.53.0",
+    "pydantic-settings>=2.15.0,<3.0.0",
+    "httpx>=0.28.1,<0.29.0",
+    "prometheus-client>=0.26.0,<0.27.0",
+]
+
+[tool.poetry]
+packages = [{ include = "metrics" }]
+
+[tool.poetry.dependencies]
+tasks-platform-shared = { path = "../../shared", develop = true }
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

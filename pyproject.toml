@@ -18,6 +18,7 @@ tasks-platform-auth = { path = "services/auth", develop = true }
 tasks-platform-org = { path = "services/org", develop = true }
 tasks-platform-tasks = { path = "services/tasks", develop = true }
 tasks-platform-saga = { path = "services/saga", develop = true }
+tasks-platform-metrics = { path = "services/metrics", develop = true }
 
 [tool.ruff]
 target-version = "py312"

@@ -1,0 +1,18 @@
+groups:
+  - name: tasks-platform-metrics
+    rules:
+      - alert: UpstreamMetricsCollectionFailed
+        expr: metrics_scrape_success{job="tasks-platform"} == 0
+        labels:
+          severity: warning
+          message: 'Не удалось собрать метрики {{ $labels.service }}: /{{ $labels.operation }}'
+        annotations:
+          description: 'Не удалось собрать метрики микросервиса'
+
+      - alert: MetricsExporterUnavailable
+        expr: up{job="tasks-platform"} == 0
+        labels:
+          severity: warning
+          message: 'Prometheus не может получить метрики от {{ $labels.instance }}'
+        annotations:
+          description: 'Сборщик metrics недоступен'

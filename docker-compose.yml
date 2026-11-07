@@ -45,8 +45,32 @@ volumes:
   pg_saga_data:
   kafka_data:
   pg_notification_data:
+  prometheus_data:
 
 services:
+  metrics:
+    image: tasks-platform-metrics:local
+    pull_policy: build
+    build:
+      context: .
+      dockerfile: services/metrics/Dockerfile
+    env_file:
+      - path: ./services/metrics/.env
+        required: false
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./services/metrics/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./services/metrics/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - metrics
+    restart: unless-stopped
+
   gateway:
     image: tasks-platform-gateway:local
     pull_policy: build
