@@ -2,6 +2,7 @@ import asyncio
 import logging
 from functools import partial
 
+from httpx import AsyncClient
 from sqlalchemy.exc import SQLAlchemyError
 
 from shared.events.bus import KafkaEventsBus
@@ -14,6 +15,7 @@ from .config import Settings, get_settings
 from .database import async_engine, async_session_factory
 from .dependencies.services import get_saga_service
 from .dependencies.session import get_session
+from .dependencies.statistics import get_heartbeat_reporter
 from .events import subscribe_handlers
 from .models.inbox_messages import InboxMessagesSaga
 from .services.constants import CONSUMER_NAME
@@ -40,18 +42,26 @@ async def main() -> None:
     settings = get_settings()
     bus = KafkaEventsBus(kafka_bootstrap_servers=settings.kafka_bootstrap_servers)
     await subscribe_handlers(bus)
-    consumer = KafkaEventConsumer(
-        bus=bus,
-        inbox_factory=partial(InboxSqlAlchemyRepository, model=InboxMessagesSaga),
-        consumer_name=CONSUMER_NAME,
-        kafka_bootstrap_servers=settings.kafka_bootstrap_servers,
-        session_factory=async_session_factory,
-    )
 
     try:
-        async with bus.producer.producer, consumer.consumer, asyncio.TaskGroup() as tasks:
-            tasks.create_task(consumer.run())
-            tasks.create_task(monitor_timeouts(settings))
+        async with AsyncClient(timeout=settings.heartbeat_timeout_seconds) as client:
+            heartbeat = get_heartbeat_reporter(client, "consumer")
+            consumer = KafkaEventConsumer(
+                bus=bus,
+                inbox_factory=partial(InboxSqlAlchemyRepository, model=InboxMessagesSaga),
+                consumer_name=CONSUMER_NAME,
+                kafka_bootstrap_servers=settings.kafka_bootstrap_servers,
+                session_factory=async_session_factory,
+                heartbeat=heartbeat,
+            )
+            async with (
+                bus.producer.producer,
+                consumer.consumer,
+                heartbeat.running(),
+                asyncio.TaskGroup() as tasks,
+            ):
+                tasks.create_task(consumer.run())
+                tasks.create_task(monitor_timeouts(settings))
     finally:
         await async_engine.dispose()
 

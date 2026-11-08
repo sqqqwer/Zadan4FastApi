@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     idempotency_hmac_secret: SecretStr
 
     kafka_bootstrap_servers: str
+
+    statistics_endpoint: str = "http://metrics:8000/heartbeat"
+    heartbeat_interval_seconds: float = Field(default=5.0, gt=0)
+    heartbeat_timeout_seconds: float = Field(default=1.0, gt=0)
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

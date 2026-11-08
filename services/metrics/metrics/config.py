@@ -3,6 +3,8 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .schemas.heartbeat import WorkerRole
+
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -18,6 +20,16 @@ class Settings(BaseSettings):
     )
     upstream_http_timeout: float = Field(default=5.0, gt=0)
     upstream_max_concurrency: int = Field(default=10, ge=1)
+    workers: dict[str, list[WorkerRole]] = Field(
+        default={
+            "auth": ["consumer", "publisher"],
+            "org": ["consumer", "publisher"],
+            "tasks": ["consumer", "publisher"],
+            "saga": ["consumer", "publisher"],
+            "notification": ["consumer"],
+        },
+        min_length=1,
+    )
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "metrics"]
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

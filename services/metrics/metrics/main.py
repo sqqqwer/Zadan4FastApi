@@ -9,6 +9,7 @@ from shared.correlation.middleware import correlation_id_middleware
 from shared.logging.config import setup_logging
 from shared.resources.exceptions_handler import exception_handlers
 
+from .api.heartbeat import router as heartbeat_router
 from .api.metrics import router as metrics_router
 from .api.operations import router as operations_router
 from .config import get_settings
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             client=client,
             service_urls=settings.service_urls,
             max_concurrency=settings.upstream_max_concurrency,
+            workers=settings.workers,
         )
         yield
 
@@ -35,3 +37,4 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=get_settings().allowed_h
 app.middleware("http")(correlation_id_middleware)
 app.include_router(operations_router)
 app.include_router(metrics_router)
+app.include_router(heartbeat_router)

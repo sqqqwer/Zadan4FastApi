@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     saga_step_timeout_seconds: float = Field(default=60, gt=0)
     saga_timeout_check_interval_seconds: float = Field(default=10, gt=0)
 
+    statistics_endpoint: str = "http://metrics:8000/heartbeat"
+    heartbeat_interval_seconds: float = Field(default=5.0, gt=0)
+    heartbeat_timeout_seconds: float = Field(default=1.0, gt=0)
+
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[1] / ".env",
         extra="ignore",

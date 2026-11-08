@@ -16,3 +16,20 @@ groups:
           message: 'Prometheus не может получить метрики от {{ $labels.instance }}'
         annotations:
           description: 'Сборщик metrics недоступен'
+
+      - alert: WorkerHeartbeatMissing
+        expr: time() - worker_last_progress_timestamp_seconds{job="tasks-platform"} > 30
+        labels:
+          severity: warning
+          message: 'Нет свежего heartbeat от {{ $labels.service }} ({{ $labels.role }}) более 30 секунд'
+        annotations:
+          description: 'Нет свежей отметки прогресса: worker остановлен, завис или потерял связь со сборщиком'
+
+      - alert: WorkerHeartbeatNotReceived
+        expr: worker_heartbeat_received{job="tasks-platform"} == 0
+        for: 30s
+        labels:
+          severity: warning
+          message: 'Первый heartbeat от {{ $labels.service }} ({{ $labels.role }}) не получен'
+        annotations:
+          description: 'Worker не передал первый heartbeat в течение 30 секунд наблюдения'

@@ -2,12 +2,13 @@ import asyncio
 import json
 import logging
 from base64 import b64encode
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
 from uuid import UUID
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, TopicPartition
+from aiokafka.errors import ConsumerStoppedError
 from aiokafka.structs import ConsumerRecord
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -25,8 +26,11 @@ logger = logging.getLogger(__name__)
 
 MAX_PROCESSING_ATTEMPTS = 5
 RETRY_BACKOFF_SECONDS = 1
+HEARTBEAT_POLL_TIMEOUT_MS = 1000
 
 if TYPE_CHECKING:
+    from shared.statistics.abstracts import ProgressAbstractReporter
+
     from .bus import KafkaEventsBus
 
 
@@ -67,6 +71,7 @@ class KafkaEventConsumer:
         *,
         topics: tuple[str, ...] = ("auth.events", "org.events", "tasks.events"),
         supported_schema_versions: dict[EventType, tuple[int, ...]] | None = None,
+        heartbeat: "ProgressAbstractReporter | None" = None,
     ) -> None:
         """Initialize the Kafka consumer.
 
@@ -78,12 +83,14 @@ class KafkaEventConsumer:
             session_factory: Factory for sessions in the service's own database.
             topics: Topics needed by this consumer, including command topics for saga participants.
             supported_schema_versions: Accepted versions by event type; other events accept only version 1.
+            heartbeat: Optional observer of polling and committed message processing.
         """
         self.bus = bus
         self.inbox_factory = inbox_factory
         self.consumer_name = consumer_name
         self.session_factory = session_factory
         self.supported_schema_versions = supported_schema_versions or {}
+        self.heartbeat = heartbeat
 
         self.consumer = AIOKafkaConsumer(
             *topics,
@@ -95,14 +102,33 @@ class KafkaEventConsumer:
 
     async def run(self) -> None:
         """Commit offsets only after processing or confirmed delivery to the DLQ."""
-        async for message in self.consumer:
+        async for message in self._iter_messages():
             correlation_token = correlation_id_var.set("-")
             try:
                 await self._process_message(message)
                 partition = TopicPartition(message.topic, message.partition)
                 await self.consumer.commit({partition: message.offset + 1})
+                if self.heartbeat is not None:
+                    self.heartbeat.mark_progress()
             finally:
                 correlation_id_var.reset(correlation_token)
+
+    async def _iter_messages(self) -> AsyncIterator[ConsumerRecord[bytes, bytes]]:
+        """Use bounded polling when progress reporting is enabled."""
+        heartbeat = self.heartbeat
+        if heartbeat is None:
+            async for message in self.consumer:
+                yield message
+            return
+        while True:
+            try:
+                batches = await self.consumer.getmany(timeout_ms=HEARTBEAT_POLL_TIMEOUT_MS, max_records=1)
+            except ConsumerStoppedError:
+                return
+            heartbeat.mark_progress()
+            for messages in batches.values():
+                for message in messages:
+                    yield message
 
     async def _process_message(self, message: ConsumerRecord[bytes, bytes]) -> None:
         envelope: EventEnvelope | None = None
