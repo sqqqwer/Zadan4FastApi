@@ -17,6 +17,7 @@ from ..repositories.sqlalchemy_repositories import (
 )
 from .jwt import AccessTokenClaimsDependency
 from .session import SessionDependency
+from .tracing import get_tracing_reporter
 
 
 def get_position_repository(
@@ -56,7 +57,7 @@ def get_outbox_repository(session: SessionDependency) -> OutboxAbstractRepositor
     Returns:
         OutboxAbstractRepository: Outbox repository for org events.
     """
-    return OutboxSqlAlchemyRepository(session=session, model=OutboxMessagesOrg)
+    return OutboxSqlAlchemyRepository(session=session, model=OutboxMessagesOrg, tracing=get_tracing_reporter())
 
 
 def get_replica_user_repository(session: SessionDependency) -> ReplicaUserAbstractRepository:

@@ -3,6 +3,7 @@ import json
 import logging
 from base64 import b64encode
 from collections.abc import AsyncIterator, Callable
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
 from uuid import UUID
@@ -10,6 +11,7 @@ from uuid import UUID
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, TopicPartition
 from aiokafka.errors import ConsumerStoppedError
 from aiokafka.structs import ConsumerRecord
+from opentelemetry.trace import SpanKind
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from shared.correlation.request_context import correlation_id_var
@@ -30,6 +32,7 @@ HEARTBEAT_POLL_TIMEOUT_MS = 1000
 
 if TYPE_CHECKING:
     from shared.statistics.abstracts import ProgressAbstractReporter
+    from shared.tracing.abstracts import TracingAbstractReporter
 
     from .bus import KafkaEventsBus
 
@@ -37,13 +40,20 @@ if TYPE_CHECKING:
 class KafkaEventProducer:
     """Event producer using Kafka."""
 
-    def __init__(self, kafka_bootstrap_servers: str) -> None:
+    def __init__(
+        self,
+        kafka_bootstrap_servers: str,
+        *,
+        tracing: "TracingAbstractReporter | None" = None,
+    ) -> None:
         """Initialize the Kafka producer.
 
         Args:
             kafka_bootstrap_servers: Kafka broker addresses supplied by the service.
+            tracing: Optional reporter for send spans and outgoing trace headers.
         """
         self.producer = AIOKafkaProducer(bootstrap_servers=kafka_bootstrap_servers)
+        self.tracing = tracing
 
     async def publish(self, envelope: EventEnvelope) -> None:
         """Publish an event to its producer's topic.
@@ -51,11 +61,29 @@ class KafkaEventProducer:
         Args:
             envelope: Event data and metadata.
         """
-        await self.producer.send_and_wait(
-            topic=f"{envelope.producer}.events",
-            key=str(envelope.aggregate_id).encode("utf-8"),
-            value=envelope.model_dump_json().encode("utf-8"),
-        )
+        topic = f"{envelope.producer}.events"
+        with (
+            self.tracing.span(
+                f"{topic} publish",
+                kind=SpanKind.PRODUCER,
+                attributes={
+                    "messaging.system": "kafka",
+                    "messaging.destination.name": topic,
+                    "messaging.message.id": str(envelope.event_id),
+                },
+            )
+            if self.tracing is not None
+            else nullcontext()
+        ):
+            headers = None
+            if self.tracing is not None:
+                headers = [(key, value.encode("ascii")) for key, value in self.tracing.inject_context().items()]
+            await self.producer.send_and_wait(
+                topic=topic,
+                key=str(envelope.aggregate_id).encode("utf-8"),
+                value=envelope.model_dump_json().encode("utf-8"),
+                headers=headers,
+            )
 
 
 class KafkaEventConsumer:
@@ -72,6 +100,7 @@ class KafkaEventConsumer:
         topics: tuple[str, ...] = ("auth.events", "org.events", "tasks.events"),
         supported_schema_versions: dict[EventType, tuple[int, ...]] | None = None,
         heartbeat: "ProgressAbstractReporter | None" = None,
+        tracing: "TracingAbstractReporter | None" = None,
     ) -> None:
         """Initialize the Kafka consumer.
 
@@ -84,6 +113,7 @@ class KafkaEventConsumer:
             topics: Topics needed by this consumer, including command topics for saga participants.
             supported_schema_versions: Accepted versions by event type; other events accept only version 1.
             heartbeat: Optional observer of polling and committed message processing.
+            tracing: Optional reporter for message processing and DLQ publication.
         """
         self.bus = bus
         self.inbox_factory = inbox_factory
@@ -91,6 +121,7 @@ class KafkaEventConsumer:
         self.session_factory = session_factory
         self.supported_schema_versions = supported_schema_versions or {}
         self.heartbeat = heartbeat
+        self.tracing = tracing
 
         self.consumer = AIOKafkaConsumer(
             *topics,
@@ -105,13 +136,42 @@ class KafkaEventConsumer:
         async for message in self._iter_messages():
             correlation_token = correlation_id_var.set("-")
             try:
-                await self._process_message(message)
-                partition = TopicPartition(message.topic, message.partition)
-                await self.consumer.commit({partition: message.offset + 1})
-                if self.heartbeat is not None:
-                    self.heartbeat.mark_progress()
+                with (
+                    self.tracing.span(
+                        f"{message.topic} process",
+                        kind=SpanKind.CONSUMER,
+                        carrier=self._get_trace_context(message),
+                        attributes={
+                            "messaging.system": "kafka",
+                            "messaging.destination.name": message.topic,
+                            "messaging.consumer.group.name": self.consumer_name,
+                            "messaging.destination.partition.id": str(message.partition),
+                            "messaging.kafka.message.offset": message.offset,
+                        },
+                    )
+                    if self.tracing is not None
+                    else nullcontext()
+                ):
+                    await self._process_message(message)
+                    partition = TopicPartition(message.topic, message.partition)
+                    await self.consumer.commit({partition: message.offset + 1})
+                    if self.heartbeat is not None:
+                        self.heartbeat.mark_progress()
             finally:
                 correlation_id_var.reset(correlation_token)
+
+    @staticmethod
+    def _get_trace_context(message: ConsumerRecord[bytes, bytes]) -> dict[str, str]:
+        """Read W3C headers without letting malformed optional values reject an event."""
+        carrier = {}
+        for key, value in message.headers:
+            if key.lower() not in {"traceparent", "tracestate"} or value is None:
+                continue
+            try:
+                carrier[key.lower()] = value.decode("ascii")
+            except UnicodeDecodeError:
+                continue
+        return carrier
 
     async def _iter_messages(self) -> AsyncIterator[ConsumerRecord[bytes, bytes]]:
         """Use bounded polling when progress reporting is enabled."""
@@ -134,19 +194,27 @@ class KafkaEventConsumer:
         envelope: EventEnvelope | None = None
         for attempt in range(1, MAX_PROCESSING_ATTEMPTS + 1):
             try:
-                if envelope is None:
-                    if message.value is None:
-                        raise FatalEventError("Event message must not be null")
-                    envelope = EventEnvelope.model_validate_json(message.value)
-                    correlation_id_var.set(str(envelope.correlation_id))
-                    supported_versions = self.supported_schema_versions.get(envelope.event_type, (1,))
-                    if envelope.schema_version not in supported_versions:
-                        raise FatalEventError(f"Unsupported schema_version={envelope.schema_version}")
-                async with session_scope(self.session_factory) as session:
-                    inbox = self.inbox_factory(session)
-                    if await inbox.try_register(consumer_name=self.consumer_name, event_id=envelope.event_id):
-                        await self.bus.dispatch(envelope, session)
-                return
+                with (
+                    self.tracing.span(
+                        "messaging.process_attempt",
+                        attributes={"messaging.message.retry.count": attempt - 1},
+                    )
+                    if self.tracing is not None
+                    else nullcontext()
+                ):
+                    if envelope is None:
+                        if message.value is None:
+                            raise FatalEventError("Event message must not be null")
+                        envelope = EventEnvelope.model_validate_json(message.value)
+                        correlation_id_var.set(str(envelope.correlation_id))
+                        supported_versions = self.supported_schema_versions.get(envelope.event_type, (1,))
+                        if envelope.schema_version not in supported_versions:
+                            raise FatalEventError(f"Unsupported schema_version={envelope.schema_version}")
+                    async with session_scope(self.session_factory) as session:
+                        inbox = self.inbox_factory(session)
+                        if await inbox.try_register(consumer_name=self.consumer_name, event_id=envelope.event_id):
+                            await self.bus.dispatch(envelope, session)
+                    return
             except (ValueError, KeyError, DomainValidationError) as error:
                 await self._send_to_dlq(message, error, attempt, envelope)
                 return
@@ -216,12 +284,29 @@ class KafkaEventConsumer:
         )
         topic = f"{message.topic}.dlq"
         try:
-            await self.bus.producer.producer.send_and_wait(
-                topic=topic,
-                key=message.key,
-                value=letter.model_dump_json().encode("utf-8"),
-                headers=list(message.headers),
-            )
+            with (
+                self.tracing.span(
+                    f"{topic} publish",
+                    kind=SpanKind.PRODUCER,
+                    attributes={"messaging.system": "kafka", "messaging.destination.name": topic},
+                )
+                if self.tracing is not None
+                else nullcontext()
+            ):
+                headers = list(message.headers)
+                if self.tracing is not None:
+                    headers = [
+                        (key, value) for key, value in headers if key.lower() not in {"traceparent", "tracestate"}
+                    ]
+                    headers.extend(
+                        (key, value.encode("ascii")) for key, value in self.tracing.inject_context().items()
+                    )
+                await self.bus.producer.producer.send_and_wait(
+                    topic=topic,
+                    key=message.key,
+                    value=letter.model_dump_json().encode("utf-8"),
+                    headers=headers,
+                )
         except Exception:
             logger.exception(
                 "DLQ delivery failed; offset not committed: topic=%s partition=%s offset=%s",

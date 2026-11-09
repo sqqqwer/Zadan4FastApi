@@ -46,8 +46,28 @@ volumes:
   kafka_data:
   pg_notification_data:
   prometheus_data:
+  jaeger_data:
 
 services:
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.23.0
+    command: ["--config=/etc/jaeger/config.yml"]
+    volumes:
+      - ./services/jaeger/config.yml:/etc/jaeger/config.yml:ro
+      - jaeger_data:/tmp
+    ports:
+      - "127.0.0.1:16686:16686"
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.165.0
+    command: ["--config=/etc/otelcol/config.yml"]
+    volumes:
+      - ./services/otel-collector/config.yml:/etc/otelcol/config.yml:ro
+    depends_on:
+      - jaeger
+    restart: unless-stopped
+
   metrics:
     image: tasks-platform-metrics:local
     pull_policy: build

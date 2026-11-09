@@ -5,6 +5,7 @@ from shared.outbox.repository import OutboxAbstractRepository, OutboxSqlAlchemyR
 from ..models.outbox_messages import OutboxMessagesSaga
 from ..repositories.abstracts import SagaAbstractRepository
 from ..repositories.sqlalchemy_repositories import SagaSqlAlchemyRepository
+from .tracing import get_tracing_reporter
 
 
 def get_saga_repository(session: AsyncSession) -> SagaAbstractRepository:
@@ -14,4 +15,4 @@ def get_saga_repository(session: AsyncSession) -> SagaAbstractRepository:
 
 def get_outbox_repository(session: AsyncSession) -> OutboxAbstractRepository:
     """Build the saga outbox repository using the same session."""
-    return OutboxSqlAlchemyRepository(session, model=OutboxMessagesSaga)
+    return OutboxSqlAlchemyRepository(session, model=OutboxMessagesSaga, tracing=get_tracing_reporter())

@@ -1,11 +1,14 @@
 from abc import ABC, abstractmethod
-from typing import override
+from typing import TYPE_CHECKING, Any, override
 
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.base.models.models import BaseModelWithoutId
 from shared.events.envelope import EventEnvelope
+
+if TYPE_CHECKING:
+    from shared.tracing.abstracts import TracingAbstractReporter
 
 
 class OutboxAbstractRepository(ABC):
@@ -30,15 +33,32 @@ class OutboxAbstractRepository(ABC):
 class OutboxSqlAlchemyRepository(OutboxAbstractRepository):
     """SQLAlchemy repository for outgoing events."""
 
-    def __init__(self, session: AsyncSession, model: type[BaseModelWithoutId]):
+    def __init__(
+        self,
+        session: AsyncSession,
+        model: type[BaseModelWithoutId],
+        *,
+        tracing: "TracingAbstractReporter | None" = None,
+    ):
         """Initialize the repository.
 
         Args:
             session: Database session shared with the business repositories and unit of work.
             model: Outbox database model of the current module.
+            tracing: Optional provider of context stored alongside the event.
         """
         self.session = session
         self.model = model
+        self.tracing = tracing
+
+    def _serialize_envelope(self, envelope: EventEnvelope) -> dict[str, Any]:
+        """Persist context in existing JSON metadata without changing the event schema."""
+        data = envelope.model_dump(mode="json")
+        if self.tracing is not None:
+            carrier = self.tracing.inject_context()
+            if carrier:
+                data["trace_context"] = carrier
+        return data
 
     @override
     async def add(self, envelope: EventEnvelope, dedup_key: str) -> None:
@@ -48,7 +68,7 @@ class OutboxSqlAlchemyRepository(OutboxAbstractRepository):
             envelope: Event data and metadata.
             dedup_key: Deterministic key identifying the business event.
         """
-        envelope_data = envelope.model_dump(mode="json")
+        envelope_data = self._serialize_envelope(envelope)
         outbox_message = self.model(
             event_id=envelope.event_id,
             event_type=envelope.event_type.value,
@@ -61,7 +81,7 @@ class OutboxSqlAlchemyRepository(OutboxAbstractRepository):
 
     @override
     async def add_once(self, envelope: EventEnvelope, dedup_key: str) -> None:
-        envelope_data = envelope.model_dump(mode="json")
+        envelope_data = self._serialize_envelope(envelope)
         statement = (
             insert(self.model)
             .values(

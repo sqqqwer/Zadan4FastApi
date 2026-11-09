@@ -9,6 +9,7 @@ from ..repositories.abstracts import ReplicaUserAbstractRepository, TaskAbstract
 from ..repositories.sqlalchemy_repositories import ReplicaUserSqlAlchemyRepository, TaskSqlAlchemyRepository
 from .jwt import AccessTokenClaimsDependency
 from .session import SessionDependency
+from .tracing import get_tracing_reporter
 
 
 def get_task_repository(session: SessionDependency, claims: AccessTokenClaimsDependency) -> TaskAbstractRepository:
@@ -33,7 +34,7 @@ def get_outbox_repository(session: SessionDependency) -> OutboxAbstractRepositor
     Returns:
         OutboxAbstractRepository: Outbox repository for task events.
     """
-    return OutboxSqlAlchemyRepository(session=session, model=OutboxMessagesTasks)
+    return OutboxSqlAlchemyRepository(session=session, model=OutboxMessagesTasks, tracing=get_tracing_reporter())
 
 
 def get_replica_user_repository(session: SessionDependency) -> ReplicaUserAbstractRepository:

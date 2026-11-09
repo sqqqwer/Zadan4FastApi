@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -15,6 +16,7 @@ from shared.uow.session_scope import session_scope
 
 if TYPE_CHECKING:
     from shared.statistics.abstracts import ProgressAbstractReporter
+    from shared.tracing.abstracts import TracingAbstractReporter
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,7 @@ class OutboxPublisher:
         session_factory: async_sessionmaker[AsyncSession],
         *,
         heartbeat: "ProgressAbstractReporter | None" = None,
+        tracing: "TracingAbstractReporter | None" = None,
     ) -> None:
         """Initialize the outbox publisher.
 
@@ -37,11 +40,13 @@ class OutboxPublisher:
             model: Outbox database model of the current module.
             session_factory: Factory for sessions in the service's own database.
             heartbeat: Optional observer of database polling and publication progress.
+            tracing: Optional reporter used to restore the outbox event's context.
         """
         self.producer = producer
         self.model = model
         self.session_factory = session_factory
         self.heartbeat = heartbeat
+        self.tracing = tracing
 
     async def publish_batch(self) -> None:
         """Publish a locked batch of outgoing events and save publication results."""
@@ -64,8 +69,17 @@ class OutboxPublisher:
                 correlation_token = correlation_id_var.set(str(envelope.correlation_id))
 
                 try:
-                    async with asyncio.timeout(10):
-                        await self.producer.publish(envelope)
+                    with (
+                        self.tracing.span(
+                            "outbox.publish",
+                            carrier=self._get_trace_context(message.envelope),
+                            attributes={"messaging.message.id": str(envelope.event_id)},
+                        )
+                        if self.tracing is not None
+                        else nullcontext()
+                    ):
+                        async with asyncio.timeout(10):
+                            await self.producer.publish(envelope)
                 except (KafkaError, TimeoutError) as error:
                     message.last_error = f"{type(error).__name__}: {error}"
                     logger.warning(f"Outbox publish failed: event_id={message.event_id}, error={message.last_error}")
@@ -84,6 +98,18 @@ class OutboxPublisher:
 
         if self.heartbeat is not None:
             self.heartbeat.mark_progress()
+
+    @staticmethod
+    def _get_trace_context(envelope: dict) -> dict[str, str]:
+        """Ignore absent or malformed optional tracing metadata in stored events."""
+        carrier = envelope.get("trace_context")
+        if not isinstance(carrier, dict):
+            return {}
+        return {
+            key: value
+            for key, value in carrier.items()
+            if key in {"traceparent", "tracestate"} and isinstance(value, str)
+        }
 
     async def run(self) -> None:
         """Poll the outbox and retry publication after failed iterations."""

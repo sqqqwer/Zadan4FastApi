@@ -20,6 +20,7 @@ from ..repositories.sqlalchemy_repositories import (
     UserSqlAlchemyRepository,
 )
 from .session import SessionDependency
+from .tracing import get_tracing_reporter
 
 
 def get_account_repository(session: SessionDependency) -> AccountAbstractRepository:
@@ -91,7 +92,7 @@ def get_outbox_repository(session: SessionDependency) -> OutboxAbstractRepositor
     Returns:
         OutboxAbstractRepository: Outbox repository for auth events.
     """
-    return OutboxSqlAlchemyRepository(session=session, model=OutboxMessagesAuth)
+    return OutboxSqlAlchemyRepository(session=session, model=OutboxMessagesAuth, tracing=get_tracing_reporter())
 
 
 OutboxRepositoryDependency = Annotated[OutboxAbstractRepository, Depends(get_outbox_repository)]
