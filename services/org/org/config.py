@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     auth_users_lookup_path: str = "/auth/api/v1/users/lookup"
     auth_http_timeout: float = Field(default=2.0, gt=0)
 
+    redis_url: str = "redis://localhost:6379/0"
+    struct_cache_ttl: int = Field(default=60, gt=0)
+
     statistics_endpoint: str = "http://metrics:8000/heartbeat"
     heartbeat_interval_seconds: float = Field(default=5.0, gt=0)
     heartbeat_timeout_seconds: float = Field(default=1.0, gt=0)

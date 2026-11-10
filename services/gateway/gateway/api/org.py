@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, Request, Response
 
 from ..constants.http import PROXY_METHODS
-from ..dependencies.jwt import get_current_claims
+from ..dependencies.rate_limiter import check_rate_limit
 from ..utils.proxy import proxy_request
 
 router = APIRouter(
-    prefix="/org/api/v1", tags=["org"], dependencies=[Depends(get_current_claims)], include_in_schema=False
+    prefix="/org/api/v1", tags=["org"], dependencies=[Depends(check_rate_limit)], include_in_schema=False
 )
 
 

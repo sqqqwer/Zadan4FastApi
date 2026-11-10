@@ -7,6 +7,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from shared.correlation.middleware import correlation_id_middleware
 from shared.logging.config import setup_logging
+from shared.redis.client import redis_client
 from shared.resources.exceptions_handler import exception_handlers
 from shared.tracing.instrumentation import instrument_app, instrument_databases, instrument_http_client
 
@@ -19,17 +20,21 @@ from .dependencies.tracing import get_tracing_reporter
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """Manage tracing, the database engine and the auth fallback HTTP client."""
+    """Manage tracing, the database engine, Redis and the auth fallback HTTP client."""
     settings = get_settings()
     tracing = get_tracing_reporter()
     async with tracing.running() if tracing is not None else nullcontext():
         try:
             if tracing is not None:
                 instrument_databases([async_engine], tracing)
-            async with AsyncClient(base_url=settings.auth_base_url, timeout=settings.auth_http_timeout) as client:
+            async with (
+                redis_client(settings.redis_url) as redis,
+                AsyncClient(base_url=settings.auth_base_url, timeout=settings.auth_http_timeout) as client,
+            ):
                 if tracing is not None:
                     instrument_http_client(client, tracing)
                 app.state.auth_http_client = client
+                app.state.redis = redis
                 yield
         finally:
             await async_engine.dispose()

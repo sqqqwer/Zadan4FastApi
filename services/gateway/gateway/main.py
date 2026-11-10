@@ -7,6 +7,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from shared.correlation.middleware import correlation_id_middleware
 from shared.logging.config import setup_logging
+from shared.redis.client import redis_client
 from shared.resources.exceptions_handler import exception_handlers
 from shared.tracing.instrumentation import instrument_app, instrument_http_client
 
@@ -21,16 +22,18 @@ from .dependencies.tracing import get_tracing_reporter
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """Manage tracing and the HTTP client used for upstream requests."""
+    """Manage tracing, Redis and the HTTP client used for upstream requests."""
     settings = get_settings()
     tracing = get_tracing_reporter()
     async with (
         tracing.running() if tracing is not None else nullcontext(),
+        redis_client(settings.redis_url) as redis,
         AsyncClient(timeout=settings.upstream_http_timeout, follow_redirects=False) as client,
     ):
         if tracing is not None:
             instrument_http_client(client, tracing)
         app.state.upstream_http_client = client
+        app.state.redis = redis
         app.state.upstream_urls = {
             "auth": settings.auth_base_url,
             "org": settings.org_base_url,

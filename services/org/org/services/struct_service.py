@@ -1,6 +1,9 @@
 import logging
+from collections.abc import Sequence
 from typing import override
 from uuid import UUID
+
+from pydantic import TypeAdapter
 
 from shared.base.crud.service import CrudAbstractService
 from shared.idempotency.service import IdempotencyAbstractService
@@ -29,8 +32,12 @@ from ..schemas import (
     StructTreeResponseChildStructScheme,
     StructTreeResponseScheme,
 )
+from .struct_cache import StructCacheService
 
 logger = logging.getLogger(__name__)
+struct_list_adapter = TypeAdapter(list[StructResponseScheme])
+struct_adapter = TypeAdapter(StructResponseScheme)
+struct_tree_adapter = TypeAdapter(StructTreeResponseScheme)
 
 
 class StructService(CrudAbstractService[StructCreateScheme, StructCreateScheme, StructResponseScheme]):
@@ -44,6 +51,7 @@ class StructService(CrudAbstractService[StructCreateScheme, StructCreateScheme, 
         company_id: UUID,
         user_directory: UserDirectory,
         position_repository: PositionAbstractRepository,
+        struct_cache: StructCacheService,
     ):
         """Initialize the service.
 
@@ -54,6 +62,7 @@ class StructService(CrudAbstractService[StructCreateScheme, StructCreateScheme, 
             company_id: Company ID.
             user_directory: User directory used to get user data.
             position_repository: Database repository for position objects.
+            struct_cache: Company scoped cache for struct responses.
         """
         super().__init__(
             crud_repository=crud_repository,
@@ -65,6 +74,66 @@ class StructService(CrudAbstractService[StructCreateScheme, StructCreateScheme, 
         self.position_repository = position_repository
         self.struct_repository = crud_repository
         self.user_directory = user_directory
+        self.struct_cache = struct_cache
+
+    @override
+    async def list(self, limit: int, offset: int) -> Sequence[StructResponseScheme]:
+        """Get a cached page of company structs.
+
+        Args:
+            limit: Maximum number of structs to return.
+            offset: Number of structs to skip.
+
+        Returns:
+            Sequence[StructResponseScheme]: Struct responses for the requested page.
+        """
+        key = await self.struct_cache.get_key(f"list:{limit}:{offset}")
+        cached = await self.struct_cache.get(key, struct_list_adapter)
+        if cached is not None:
+            return cached
+
+        response = list(await super().list(limit=limit, offset=offset))
+        await self.struct_cache.set(key, response, struct_list_adapter)
+        return response
+
+    @override
+    async def retrieve(self, id: UUID) -> StructResponseScheme:
+        """Get a cached company struct by ID.
+
+        Args:
+            id: Struct ID.
+
+        Returns:
+            StructResponseScheme: Struct response data.
+
+        Raises:
+            StructNotFound: If the struct is not found in the current company.
+        """
+        key = await self.struct_cache.get_key(f"retrieve:{id}")
+        cached = await self.struct_cache.get(key, struct_adapter)
+        if cached is not None:
+            return cached
+
+        response = await super().retrieve(id=id)
+        await self.struct_cache.set(key, response, struct_adapter)
+        return response
+
+    @override
+    async def create(
+        self, payload: StructCreateScheme, idempotency: IdempotencyAbstractService
+    ) -> StructResponseScheme:
+        """Create a struct and invalidate company reads after committing.
+
+        Args:
+            payload: Struct data used by the operation.
+            idempotency: Service for checking and saving idempotent operations.
+
+        Returns:
+            StructResponseScheme: Created or previously saved struct response.
+        """
+        response = await super().create(payload=payload, idempotency=idempotency)
+        await self.struct_cache.invalidate()
+        return response
 
     async def update(self, id: UUID, payload: StructCreateScheme) -> StructResponseScheme:
         """Update the struct.
@@ -77,7 +146,9 @@ class StructService(CrudAbstractService[StructCreateScheme, StructCreateScheme, 
             StructResponseScheme: Struct response data.
         """
         await self.struct_repository.lock_tree()
-        return await super().update(id, payload)
+        response = await super().update(id, payload)
+        await self.struct_cache.invalidate()
+        return response
 
     async def delete(self, id: UUID) -> None:
         """Delete the struct.
@@ -102,6 +173,7 @@ class StructService(CrudAbstractService[StructCreateScheme, StructCreateScheme, 
         await self.struct_repository.delete(main_struct)
 
         await self.uow.commit()
+        await self.struct_cache.invalidate()
 
         logger.info(f"{self._get_model_name()} deleted: id={id}.")
 
@@ -117,6 +189,11 @@ class StructService(CrudAbstractService[StructCreateScheme, StructCreateScheme, 
         Raises:
             StructNotFound: If the struct is not found.
         """
+        key = await self.struct_cache.get_key(f"tree:{id}")
+        cached = await self.struct_cache.get(key, struct_tree_adapter)
+        if cached is not None:
+            return cached
+
         structs = await self.struct_repository.retrieve_with_tree(id=id)
 
         if not structs:
@@ -136,6 +213,7 @@ class StructService(CrudAbstractService[StructCreateScheme, StructCreateScheme, 
         response = StructTreeResponseScheme(**parent_schema.model_dump(), child_paths=child_structs_schemas)
 
         await self.uow.commit()
+        await self.struct_cache.set(key, response, struct_tree_adapter)
 
         logger.info(f"{self._get_model_name()} tree retrieved: id={response.id}.")
 
@@ -177,6 +255,7 @@ class StructService(CrudAbstractService[StructCreateScheme, StructCreateScheme, 
         await self.struct_repository.move_struct(struct=main_struct, struct_target=target_struct)
 
         await self.uow.commit()
+        await self.struct_cache.invalidate()
 
         logger.info(f"{self._get_model_name()} moved: struct_id={id} moved_to_struct_id={payload.struct_id}.")
 
@@ -275,6 +354,7 @@ class StructService(CrudAbstractService[StructCreateScheme, StructCreateScheme, 
         await self.struct_repository.assign_director(struct, user.user_id)
 
         await self.uow.commit()
+        await self.struct_cache.invalidate()
 
         logger.info(
             f"{self._get_model_name()} director_assigned: struct_id={id} director_id={payload.director_user_id}."
@@ -301,6 +381,7 @@ class StructService(CrudAbstractService[StructCreateScheme, StructCreateScheme, 
         await self.struct_repository.assign_director(struct, None)
 
         await self.uow.commit()
+        await self.struct_cache.invalidate()
 
         logger.info(f"{self._get_model_name()} director_unassigned: struct_id={id} director_id={unassigned_director}.")
 

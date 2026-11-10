@@ -7,6 +7,7 @@ from ..repositories.onboarding import OnboardingRepository
 from ..services.onboarding_service import OnboardingService
 from ..services.position_service import PositionService
 from ..services.struct_service import StructService
+from .cache import StructCacheServiceDependency
 from .jwt import AccessTokenClaimsDependency
 from .repositories import PositionRepositoryDependency, StructRepositoryDependency, get_outbox_repository
 from .uow import UowDependency
@@ -44,12 +45,13 @@ def get_position_service(
     )
 
 
-def get_struct_service(
+def get_struct_service(  # noqa: PLR0913, PLR0917
     struct_repository: StructRepositoryDependency,
     uow: UowDependency,
     claims: AccessTokenClaimsDependency,
     user_directory: UserDirectoryDependency,
     position_repository: PositionRepositoryDependency,
+    struct_cache: StructCacheServiceDependency,
 ) -> StructService:
     """Get the struct service.
 
@@ -59,6 +61,7 @@ def get_struct_service(
         claims: Current user access token claims.
         user_directory: User directory used to get user data.
         position_repository: Database repository for position objects.
+        struct_cache: Cache for reads of the current company's structs.
 
     Returns:
         StructService: Struct service.
@@ -70,6 +73,7 @@ def get_struct_service(
         company_id=claims.company_id,
         user_directory=user_directory,
         position_repository=position_repository,
+        struct_cache=struct_cache,
     )
 
 

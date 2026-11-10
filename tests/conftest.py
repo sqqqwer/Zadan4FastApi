@@ -1,7 +1,9 @@
 import logging
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
+from typing import Any
+from unittest.mock import AsyncMock
 
 os.environ["POSTGRES_USER"] = "test"
 os.environ["POSTGRES_PASSWORD"] = "test"
@@ -28,7 +30,9 @@ import org.dependencies.session as org_session_dependencies
 import saga.dependencies.session as saga_session_dependencies
 import tasks.dependencies.session as tasks_session_dependencies
 from auth.main import app as auth_app
+from org.dependencies.cache import get_struct_cache_service
 from org.main import app as org_app
+from org.services.struct_cache import StructCacheService
 from saga.main import app as saga_app
 from tasks.main import app as tasks_app
 
@@ -60,6 +64,26 @@ def disable_logging():
     yield
 
     root.handlers[:] = old_handlers
+
+
+@pytest.fixture(autouse=True)
+def mock_struct_cache(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
+    """Override the org cache without starting the application lifespan.
+
+    Args:
+        monkeypatch: Pytest helper for temporary dependency overrides.
+
+    Returns:
+        AsyncMock: Cache service that always reads from the database.
+    """
+    service = AsyncMock(spec=StructCacheService)
+    service.get_key.return_value = None
+    service.get.return_value = None
+    service.set.return_value = None
+    service.invalidate.return_value = None
+    dependency: Callable[..., Any] = get_struct_cache_service
+    monkeypatch.setitem(org_app.dependency_overrides, dependency, lambda: service)
+    return service
 
 
 @pytest.fixture()

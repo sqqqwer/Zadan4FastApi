@@ -49,6 +49,15 @@ volumes:
   jaeger_data:
 
 services:
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   jaeger:
     image: cr.jaegertracing.io/jaegertracing/jaeger:2.23.0
     command: ["--config=/etc/jaeger/config.yml"]
@@ -103,10 +112,16 @@ services:
     secrets:
       - jwt_public_key
     depends_on:
-      - auth
-      - org
-      - tasks
-      - saga
+      auth:
+        condition: service_started
+      org:
+        condition: service_started
+      tasks:
+        condition: service_started
+      saga:
+        condition: service_started
+      redis:
+        condition: service_healthy
 
   db_auth:
     image: postgres:17
@@ -225,6 +240,8 @@ services:
       migrate_org:
         condition: service_completed_successfully
       kafka:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     secrets:
       - jwt_public_key

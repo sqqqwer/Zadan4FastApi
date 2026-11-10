@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from shared.jwt.claims_scheme import AccessTokenClaims
 from shared.jwt.dependencies import make_jwt_dependencies
 from shared.jwt.service import JWTDecoderService
 
@@ -21,3 +22,5 @@ def get_jwt_decoder_service(settings: JwtSettingsDependency) -> JWTDecoderServic
 
 
 get_current_claims, _ = make_jwt_dependencies(get_jwt_decoder_service)
+
+AccessTokenClaimsDependency = Annotated[AccessTokenClaims, Depends(get_current_claims)]

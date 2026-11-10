@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     jwt_issuer: str = "auth-module"
     jwt_audience: str = "tasks-platform"
 
+    redis_url: str = "redis://localhost:6379/0"
+    rate_limit_max_requests: int = Field(default=100, gt=0)
+    rate_limit_window_seconds: int = Field(default=60, gt=0)
+
     tracing_enabled: bool = False
     tracing_endpoint: str = "http://otel-collector:4318/v1/traces"
     tracing_sample_ratio: float = Field(default=1.0, ge=0, le=1, allow_inf_nan=False)
