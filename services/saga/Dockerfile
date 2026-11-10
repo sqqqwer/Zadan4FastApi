@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir "poetry==$POETRY_VERSION"
 
 COPY shared/pyproject.toml /app/shared/pyproject.toml
 COPY shared/shared /app/shared/shared
-COPY services/saga/pyproject.toml ./
+COPY services/saga/pyproject.toml services/saga/poetry.lock ./
 
 RUN poetry install --only main --no-root
 
